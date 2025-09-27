@@ -318,7 +318,10 @@ class LgaSeeder extends Seeder
         ];
 
         foreach ($lgas as $lgaData) {
-            Lga::create($lgaData);
+            Lga::updateOrCreate(
+                ['code' => $lgaData['code']],
+                $lgaData
+            );
         }
     }
 }

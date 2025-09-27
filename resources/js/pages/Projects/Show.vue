@@ -78,6 +78,22 @@
                   <dt class="text-sm font-medium text-gray-500">Project Manager</dt>
                   <dd class="mt-1 text-sm text-gray-900">{{ project.project_manager.name }}</dd>
                 </div>
+                <div v-if="project.lga_name">
+                  <dt class="text-sm font-medium text-gray-500">LGA</dt>
+                  <dd class="mt-1 text-sm text-gray-900">{{ project.lga_name }}</dd>
+                </div>
+                <div v-if="project.ward_name">
+                  <dt class="text-sm font-medium text-gray-500">Ward</dt>
+                  <dd class="mt-1 text-sm text-gray-900">{{ project.ward_name }}</dd>
+                </div>
+                <div v-if="project.address">
+                  <dt class="text-sm font-medium text-gray-500">Address</dt>
+                  <dd class="mt-1 text-sm text-gray-900">{{ project.address }}</dd>
+                </div>
+                <div v-if="project.sector">
+                  <dt class="text-sm font-medium text-gray-500">Sector</dt>
+                  <dd class="mt-1 text-sm text-gray-900">{{ project.sector }}</dd>
+                </div>
                 <div>
                   <dt class="text-sm font-medium text-gray-500">Updates</dt>
                   <dd class="mt-1 text-sm text-gray-900">{{ project.updates_count }} updates</dd>
@@ -208,9 +224,11 @@ const getStatusLabel = (status: string) => {
 };
 
 const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('en-NG', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'NGN',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   }).format(amount);
 };
 
@@ -229,35 +247,7 @@ const fetchProject = async () => {
     project.value = response.data;
   } catch (error) {
     console.error('Error fetching project:', error);
-    // Sample data for demonstration
-    project.value = {
-      id: parseInt(route.params.id as string) || 1,
-      name: 'Water Infrastructure Project',
-      id_code: 'WIP-2024-001',
-      status: 'in_progress',
-      progress_percentage: 65,
-      total_budget: 500000,
-      cumulative_expenditure: 325000,
-      start_date: '2024-01-15',
-      end_date: '2024-12-31',
-      project_manager: { id: 1, name: 'John Doe' },
-      updates_count: 12,
-      attachments_count: 8,
-      latest_update: {
-        id: 1,
-        title: 'Monthly Progress Report',
-        created_at: '2024-09-25'
-      },
-      // Sample location data
-      lga_id: 'bida',
-      lga_name: 'Bida',
-      ward_id: 'bida_central',
-      ward_name: 'Bida Central',
-      latitude: 9.0833,
-      longitude: 6.0167,
-      address: 'Along Bida-Minna Road, Bida',
-      location_description: 'Located near the main market area for easy community access'
-    };
+    project.value = null;
   } finally {
     loading.value = false;
   }
