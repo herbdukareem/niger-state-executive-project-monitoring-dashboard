@@ -100,264 +100,288 @@
         </div>
 
         <!-- Update Form -->
-        <form @submit.prevent="createUpdate" class="space-y-8">
+        <v-form @submit.prevent="createUpdate">
           <!-- Basic Update Information -->
-          <div class="bg-white shadow rounded-lg">
-            <div class="px-4 py-5 sm:p-6">
-              <h3 class="text-lg font-medium text-gray-900 mb-6">Update Information</h3>
-              <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div>
-                  <label for="update_type" class="block text-sm font-medium text-gray-700">Update Type</label>
-                  <select
+          <v-card class="mb-6" elevation="2">
+            <v-card-title class="text-h6 font-weight-medium">
+              <v-icon class="mr-2">mdi-update</v-icon>
+              Update Information
+            </v-card-title>
+            <v-card-text>
+              <v-row>
+                <v-col cols="12" md="6">
+                  <v-select
                     v-model="form.update_type"
-                    id="update_type"
+                    label="Update Type"
+                    variant="outlined"
                     required
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  >
-                    <option value="progress">Progress Update</option>
-                    <option value="financial">Financial Update</option>
-                    <option value="quality">Quality Assessment</option>
-                    <option value="site_visit">Site Visit Report</option>
-                    <option value="milestone">Milestone Achievement</option>
-                  </select>
-                </div>
-                <div>
-                  <label for="progress_percentage" class="block text-sm font-medium text-gray-700">Updated Progress (%)</label>
-                  <input
+                    :items="updateTypeOptions"
+                    item-title="label"
+                    item-value="value"
+                    prepend-inner-icon="mdi-format-list-bulleted-type"
+                    :rules="[v => !!v || 'Update type is required']"
+                  />
+                </v-col>
+                <v-col cols="12" md="6">
+                  <v-text-field
                     v-model.number="form.progress_percentage"
+                    label="Updated Progress (%)"
+                    variant="outlined"
                     type="number"
-                    id="progress_percentage"
                     min="0"
                     max="100"
                     step="0.01"
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    prepend-inner-icon="mdi-progress-clock"
+                    suffix="%"
                   />
-                </div>
-                <div class="sm:col-span-2">
-                  <label for="title" class="block text-sm font-medium text-gray-700">Update Title</label>
-                  <input
+                </v-col>
+                <v-col cols="12">
+                  <v-text-field
                     v-model="form.title"
-                    type="text"
-                    id="title"
+                    label="Update Title"
+                    variant="outlined"
                     required
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    prepend-inner-icon="mdi-format-title"
                     placeholder="Brief title describing this update"
+                    :rules="[v => !!v || 'Title is required']"
                   />
-                </div>
-                <div class="sm:col-span-2">
-                  <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
-                  <textarea
+                </v-col>
+                <v-col cols="12">
+                  <v-textarea
                     v-model="form.description"
-                    id="description"
+                    label="Description"
+                    variant="outlined"
                     rows="4"
                     required
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    prepend-inner-icon="mdi-text-long"
                     placeholder="Detailed description of the update, progress made, challenges faced, etc."
-                  ></textarea>
-                </div>
-              </div>
-            </div>
-          </div>
+                    :rules="[v => !!v || 'Description is required']"
+                  />
+                </v-col>
+              </v-row>
+            </v-card-text>
+          </v-card>
 
           <!-- Financial Information (if financial update) -->
-          <div v-if="form.update_type === 'financial'" class="bg-white shadow rounded-lg">
-            <div class="px-4 py-5 sm:p-6">
-              <h3 class="text-lg font-medium text-gray-900 mb-6">Financial Information</h3>
-              <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div>
-                  <label for="budget_spent_period" class="block text-sm font-medium text-gray-700">Budget Spent This Period (₦)</label>
-                  <input
+          <v-card v-if="form.update_type === 'financial'" class="mb-6" elevation="2">
+            <v-card-title class="text-h6 font-weight-medium">
+              <v-icon class="mr-2">mdi-currency-ngn</v-icon>
+              Financial Information
+            </v-card-title>
+            <v-card-text>
+              <v-row>
+                <v-col cols="12" md="6">
+                  <v-text-field
                     v-model.number="form.budget_spent_period"
+                    label="Budget Spent This Period"
+                    variant="outlined"
                     type="number"
-                    id="budget_spent_period"
                     min="0"
                     step="0.01"
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    prepend-inner-icon="mdi-cash-minus"
+                    prefix="₦"
                   />
-                </div>
-                <div>
-                  <label for="cumulative_budget_spent" class="block text-sm font-medium text-gray-700">Cumulative Budget Spent (₦)</label>
-                  <input
+                </v-col>
+                <v-col cols="12" md="6">
+                  <v-text-field
                     v-model.number="form.cumulative_budget_spent"
+                    label="Cumulative Budget Spent"
+                    variant="outlined"
                     type="number"
-                    id="cumulative_budget_spent"
                     min="0"
                     step="0.01"
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    prepend-inner-icon="mdi-cash-multiple"
+                    prefix="₦"
                   />
-                </div>
-                <div class="sm:col-span-2">
-                  <label for="financial_comments" class="block text-sm font-medium text-gray-700">Financial Comments</label>
-                  <textarea
+                </v-col>
+                <v-col cols="12">
+                  <v-textarea
                     v-model="form.financial_comments"
-                    id="financial_comments"
+                    label="Financial Comments"
+                    variant="outlined"
                     rows="3"
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    prepend-inner-icon="mdi-comment-text-outline"
                     placeholder="Comments on budget utilization, variances, etc."
-                  ></textarea>
-                </div>
-              </div>
-            </div>
-          </div>
+                  />
+                </v-col>
+              </v-row>
+            </v-card-text>
+          </v-card>
 
           <!-- Site Visit Information (if site visit) -->
-          <div v-if="form.update_type === 'site_visit'" class="bg-white shadow rounded-lg">
-            <div class="px-4 py-5 sm:p-6">
-              <h3 class="text-lg font-medium text-gray-900 mb-6">Site Visit Details</h3>
-              <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div>
-                  <label for="visit_date" class="block text-sm font-medium text-gray-700">Visit Date</label>
-                  <input
+          <v-card v-if="form.update_type === 'site_visit'" class="mb-6" elevation="2">
+            <v-card-title class="text-h6 font-weight-medium">
+              <v-icon class="mr-2">mdi-map-marker-check</v-icon>
+              Site Visit Details
+            </v-card-title>
+            <v-card-text>
+              <v-row>
+                <v-col cols="12" md="6">
+                  <v-text-field
                     v-model="form.visit_date"
+                    label="Visit Date"
+                    variant="outlined"
                     type="date"
-                    id="visit_date"
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    prepend-inner-icon="mdi-calendar"
                   />
-                </div>
-                <div>
-                  <label for="weather_conditions" class="block text-sm font-medium text-gray-700">Weather Conditions</label>
-                  <input
+                </v-col>
+                <v-col cols="12" md="6">
+                  <v-text-field
                     v-model="form.weather_conditions"
-                    type="text"
-                    id="weather_conditions"
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    label="Weather Conditions"
+                    variant="outlined"
+                    prepend-inner-icon="mdi-weather-partly-cloudy"
                     placeholder="e.g., Sunny, Rainy, Cloudy"
                   />
-                </div>
-                <div class="sm:col-span-2">
-                  <label for="site_conditions" class="block text-sm font-medium text-gray-700">Site Conditions</label>
-                  <textarea
+                </v-col>
+                <v-col cols="12">
+                  <v-textarea
                     v-model="form.site_conditions"
-                    id="site_conditions"
+                    label="Site Conditions"
+                    variant="outlined"
                     rows="3"
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    prepend-inner-icon="mdi-construction"
                     placeholder="Description of current site conditions, accessibility, etc."
-                  ></textarea>
-                </div>
-              </div>
-            </div>
-          </div>
+                  />
+                </v-col>
+              </v-row>
+            </v-card-text>
+          </v-card>
 
           <!-- Photo Upload Section -->
-          <div class="bg-white shadow rounded-lg">
-            <div class="px-4 py-5 sm:p-6">
-              <h3 class="text-lg font-medium text-gray-900 mb-6">Project Photos</h3>
+          <v-card class="mb-6" elevation="2">
+            <v-card-title class="text-h6 font-weight-medium">
+              <v-icon class="mr-2">mdi-camera</v-icon>
+              Project Photos
+            </v-card-title>
+            <v-card-text>
               <div class="space-y-4">
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-2">Upload Photos</label>
-                  <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
-                    <div class="space-y-1 text-center">
-                      <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                      </svg>
-                      <div class="flex text-sm text-gray-600">
-                        <label for="photos" class="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
-                          <span>Upload photos</span>
-                          <input
-                            id="photos"
-                            name="photos"
-                            type="file"
-                            multiple
-                            accept="image/*"
-                            @change="handlePhotoUpload"
-                            class="sr-only"
-                          />
-                        </label>
-                        <p class="pl-1">or drag and drop</p>
-                      </div>
-                      <p class="text-xs text-gray-500">PNG, JPG, GIF up to 10MB each</p>
-                    </div>
-                  </div>
-                </div>
+                <!-- File Upload Area -->
+                <v-file-input
+                  label="Upload Photos"
+                  variant="outlined"
+                  multiple
+                  accept="image/*"
+                  prepend-icon="mdi-camera"
+                  @change="handlePhotoUpload"
+                  show-size
+                  chips
+                  clearable
+                />
+
+                <v-alert
+                  type="info"
+                  variant="tonal"
+                  density="compact"
+                  class="mb-4"
+                >
+                  <v-icon start>mdi-information</v-icon>
+                  Upload PNG, JPG, or GIF files up to 10MB each
+                </v-alert>
 
                 <!-- Photo Previews -->
-                <div v-if="selectedPhotos.length > 0" class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                  <div v-for="(photo, index) in selectedPhotos" :key="index" class="relative">
-                    <img :src="photo.preview" :alt="photo.file.name" class="h-24 w-full object-cover rounded-lg" />
-                    <button
-                      @click="removePhoto(index)"
-                      type="button"
-                      class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                <div v-if="selectedPhotos.length > 0">
+                  <v-row>
+                    <v-col
+                      v-for="(photo, index) in selectedPhotos"
+                      :key="index"
+                      cols="12"
+                      sm="6"
+                      md="4"
+                      lg="3"
                     >
-                      <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                      </svg>
-                    </button>
-                    <div class="mt-1">
-                      <input
-                        v-model="photo.description"
-                        type="text"
-                        placeholder="Photo description"
-                        class="block w-full text-xs border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                      />
-                    </div>
-                  </div>
+                      <v-card elevation="2">
+                        <v-img
+                          :src="photo.preview"
+                          :alt="photo.file.name"
+                          height="150"
+                          cover
+                        />
+                        <v-card-actions class="pa-2">
+                          <v-text-field
+                            v-model="photo.description"
+                            label="Photo description"
+                            variant="outlined"
+                            density="compact"
+                            hide-details
+                          />
+                          <v-btn
+                            icon="mdi-delete"
+                            color="error"
+                            variant="text"
+                            size="small"
+                            @click="removePhoto(index)"
+                          />
+                        </v-card-actions>
+                      </v-card>
+                    </v-col>
+                  </v-row>
                 </div>
               </div>
-            </div>
-          </div>
+            </v-card-text>
+          </v-card>
 
           <!-- Comments/Notes Section -->
-          <div class="bg-white shadow rounded-lg">
-            <div class="px-4 py-5 sm:p-6">
-              <h3 class="text-lg font-medium text-gray-900 mb-6">Additional Comments & Notes</h3>
-              <div class="space-y-6">
-                <div>
-                  <label for="challenges_faced" class="block text-sm font-medium text-gray-700">Challenges Faced</label>
-                  <textarea
+          <v-card class="mb-6" elevation="2">
+            <v-card-title class="text-h6 font-weight-medium">
+              <v-icon class="mr-2">mdi-comment-text-multiple-outline</v-icon>
+              Additional Comments & Notes
+            </v-card-title>
+            <v-card-text>
+              <v-row>
+                <v-col cols="12">
+                  <v-textarea
                     v-model="form.challenges_faced"
-                    id="challenges_faced"
+                    label="Challenges Faced"
+                    variant="outlined"
                     rows="3"
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    prepend-inner-icon="mdi-alert-circle-outline"
                     placeholder="Describe any challenges or obstacles encountered"
-                  ></textarea>
-                </div>
-                <div>
-                  <label for="next_steps" class="block text-sm font-medium text-gray-700">Next Steps</label>
-                  <textarea
+                  />
+                </v-col>
+                <v-col cols="12">
+                  <v-textarea
                     v-model="form.next_steps"
-                    id="next_steps"
+                    label="Next Steps"
+                    variant="outlined"
                     rows="3"
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    prepend-inner-icon="mdi-arrow-right-circle-outline"
                     placeholder="Outline the planned next steps and activities"
-                  ></textarea>
-                </div>
-                <div>
-                  <label for="recommendations" class="block text-sm font-medium text-gray-700">Recommendations</label>
-                  <textarea
+                  />
+                </v-col>
+                <v-col cols="12">
+                  <v-textarea
                     v-model="form.recommendations"
-                    id="recommendations"
+                    label="Recommendations"
+                    variant="outlined"
                     rows="3"
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    prepend-inner-icon="mdi-lightbulb-outline"
                     placeholder="Any recommendations for improving project execution"
-                  ></textarea>
-                </div>
-              </div>
-            </div>
-          </div>
+                  />
+                </v-col>
+              </v-row>
+            </v-card-text>
+          </v-card>
 
           <!-- Submit Button -->
-          <div class="flex justify-end space-x-3">
-            <button
-              type="button"
+          <v-card-actions class="justify-end pa-4">
+            <v-btn
+              variant="outlined"
               @click="navigateTo('projects.show', { id: project.id })"
-              class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              prepend-icon="mdi-arrow-left"
             >
               Cancel
-            </button>
-            <button
+            </v-btn>
+            <v-btn
               type="submit"
-              :disabled="submitting"
-              class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              color="primary"
+              :loading="submitting"
+              prepend-icon="mdi-plus-circle"
             >
-              <svg v-if="submitting" class="animate-spin -ml-1 mr-3 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
               {{ submitting ? 'Creating Update...' : 'Create Update' }}
-            </button>
-          </div>
-        </form>
+            </v-btn>
+          </v-card-actions>
+        </v-form>
       </div>
     </div>
   </AppSidebarLayout>
@@ -389,6 +413,14 @@ const project = ref<Project | null>(null);
 const loading = ref(true);
 const submitting = ref(false);
 const selectedPhotos = ref<PhotoFile[]>([]);
+
+const updateTypeOptions = [
+  { label: 'Progress Update', value: 'progress' },
+  { label: 'Financial Update', value: 'financial' },
+  { label: 'Quality Assessment', value: 'quality' },
+  { label: 'Site Visit Report', value: 'site_visit' },
+  { label: 'Milestone Achievement', value: 'milestone' },
+];
 
 const form = reactive({
   update_type: 'progress',
@@ -426,11 +458,8 @@ const fetchProject = async () => {
   }
 };
 
-const handlePhotoUpload = (event: Event) => {
-  const target = event.target as HTMLInputElement;
-  const files = target.files;
-
-  if (files) {
+const handlePhotoUpload = (files: File[] | null) => {
+  if (files && files.length > 0) {
     Array.from(files).forEach(file => {
       if (file.type.startsWith('image/')) {
         const reader = new FileReader();
@@ -445,9 +474,6 @@ const handlePhotoUpload = (event: Event) => {
       }
     });
   }
-
-  // Reset the input
-  target.value = '';
 };
 
 const removePhoto = (index: number) => {
