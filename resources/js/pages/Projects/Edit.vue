@@ -100,263 +100,275 @@
         </div>
 
         <!-- Edit Form -->
-        <form @submit.prevent="updateProject" class="space-y-8">
+        <v-form @submit.prevent="updateProject">
           <!-- Basic Information -->
-          <div class="bg-white shadow rounded-lg">
-            <div class="px-4 py-5 sm:p-6">
-              <h3 class="text-lg font-medium text-gray-900 mb-6">Basic Information</h3>
-              <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div>
-                  <label for="name" class="block text-sm font-medium text-gray-700">Project Name</label>
-                  <input
+          <v-card class="mb-6" elevation="2">
+            <v-card-title class="text-h6 font-weight-medium">
+              <v-icon class="mr-2">mdi-information-outline</v-icon>
+              Basic Information
+            </v-card-title>
+            <v-card-text>
+              <v-row>
+                <v-col cols="12" md="6">
+                  <v-text-field
                     v-model="form.name"
-                    type="text"
-                    id="name"
+                    label="Project Name"
+                    variant="outlined"
                     required
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    :rules="[v => !!v || 'Project name is required']"
+                    prepend-inner-icon="mdi-folder-outline"
                   />
-                </div>
-                <div>
-                  <label for="id_code" class="block text-sm font-medium text-gray-700">Project Code</label>
-                  <input
+                </v-col>
+                <v-col cols="12" md="6">
+                  <v-text-field
                     v-model="form.id_code"
-                    type="text"
-                    id="id_code"
+                    label="Project Code"
+                    variant="outlined"
                     required
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    :rules="[v => !!v || 'Project code is required']"
+                    prepend-inner-icon="mdi-identifier"
                   />
-                </div>
-                <div>
-                  <label for="status" class="block text-sm font-medium text-gray-700">Project Status</label>
-                  <select
+                </v-col>
+                <v-col cols="12" md="6">
+                  <v-select
                     v-model="form.status"
-                    id="status"
+                    label="Project Status"
+                    variant="outlined"
                     required
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  >
-                    <option value="not_started">Not Started</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="on_hold">On Hold</option>
-                    <option value="completed">Completed</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
-                </div>
-                <div>
-                  <label for="progress_percentage" class="block text-sm font-medium text-gray-700">Progress (%)</label>
-                  <input
+                    :items="statusOptions"
+                    item-title="label"
+                    item-value="value"
+                    prepend-inner-icon="mdi-flag-outline"
+                    :rules="[v => !!v || 'Status is required']"
+                  />
+                </v-col>
+                <v-col cols="12" md="6">
+                  <v-text-field
                     v-model.number="form.progress_percentage"
+                    label="Progress (%)"
+                    variant="outlined"
                     type="number"
-                    id="progress_percentage"
                     min="0"
                     max="100"
                     step="0.01"
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    prepend-inner-icon="mdi-progress-clock"
+                    suffix="%"
                   />
-                </div>
-                <div>
-                  <label for="sector" class="block text-sm font-medium text-gray-700">Sector</label>
-                  <input
+                </v-col>
+                <v-col cols="12" md="6">
+                  <v-text-field
                     v-model="form.sector"
-                    type="text"
-                    id="sector"
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    label="Sector"
+                    variant="outlined"
+                    prepend-inner-icon="mdi-domain"
                   />
-                </div>
-                <div>
-                  <label for="implementing_organization" class="block text-sm font-medium text-gray-700">Implementing Organization</label>
-                  <input
+                </v-col>
+                <v-col cols="12" md="6">
+                  <v-text-field
                     v-model="form.implementing_organization"
-                    type="text"
-                    id="implementing_organization"
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    label="Implementing Organization"
+                    variant="outlined"
+                    prepend-inner-icon="mdi-office-building"
                   />
-                </div>
-              </div>
-            </div>
-          </div>
+                </v-col>
+              </v-row>
+            </v-card-text>
+          </v-card>
 
           <!-- Budget Information -->
-          <div class="bg-white shadow rounded-lg">
-            <div class="px-4 py-5 sm:p-6">
-              <h3 class="text-lg font-medium text-gray-900 mb-6">Budget Information</h3>
-              <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div>
-                  <label for="total_budget" class="block text-sm font-medium text-gray-700">Total Budget (₦)</label>
-                  <input
+          <v-card class="mb-6" elevation="2">
+            <v-card-title class="text-h6 font-weight-medium">
+              <v-icon class="mr-2">mdi-currency-ngn</v-icon>
+              Budget Information
+            </v-card-title>
+            <v-card-text>
+              <v-row>
+                <v-col cols="12" md="6">
+                  <v-text-field
                     v-model.number="form.total_budget"
+                    label="Total Budget"
+                    variant="outlined"
                     type="number"
-                    id="total_budget"
                     min="0"
                     step="0.01"
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    prepend-inner-icon="mdi-cash-multiple"
+                    prefix="₦"
                   />
-                </div>
-                <div>
-                  <label for="cumulative_expenditure" class="block text-sm font-medium text-gray-700">Cumulative Expenditure (₦)</label>
-                  <input
+                </v-col>
+                <v-col cols="12" md="6">
+                  <v-text-field
                     v-model.number="form.cumulative_expenditure"
+                    label="Cumulative Expenditure"
+                    variant="outlined"
                     type="number"
-                    id="cumulative_expenditure"
                     min="0"
                     step="0.01"
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    prepend-inner-icon="mdi-cash-minus"
+                    prefix="₦"
                   />
-                </div>
-              </div>
-            </div>
-          </div>
+                </v-col>
+              </v-row>
+            </v-card-text>
+          </v-card>
 
           <!-- Timeline -->
-          <div class="bg-white shadow rounded-lg">
-            <div class="px-4 py-5 sm:p-6">
-              <h3 class="text-lg font-medium text-gray-900 mb-6">Project Timeline</h3>
-              <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div>
-                  <label for="start_date" class="block text-sm font-medium text-gray-700">Start Date</label>
-                  <input
+          <v-card class="mb-6" elevation="2">
+            <v-card-title class="text-h6 font-weight-medium">
+              <v-icon class="mr-2">mdi-calendar-range</v-icon>
+              Project Timeline
+            </v-card-title>
+            <v-card-text>
+              <v-row>
+                <v-col cols="12" md="6">
+                  <v-text-field
                     v-model="form.start_date"
+                    label="Start Date"
+                    variant="outlined"
                     type="date"
-                    id="start_date"
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    prepend-inner-icon="mdi-calendar-start"
                   />
-                </div>
-                <div>
-                  <label for="end_date" class="block text-sm font-medium text-gray-700">End Date</label>
-                  <input
+                </v-col>
+                <v-col cols="12" md="6">
+                  <v-text-field
                     v-model="form.end_date"
+                    label="End Date"
+                    variant="outlined"
                     type="date"
-                    id="end_date"
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    prepend-inner-icon="mdi-calendar-end"
                   />
-                </div>
-              </div>
-            </div>
-          </div>
+                </v-col>
+              </v-row>
+            </v-card-text>
+          </v-card>
 
           <!-- Location Information -->
-          <div class="bg-white shadow rounded-lg">
-            <div class="px-4 py-5 sm:p-6">
-              <h3 class="text-lg font-medium text-gray-900 mb-6">Location Information</h3>
-              <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div>
-                  <label for="lga_id" class="block text-sm font-medium text-gray-700">Local Government Area</label>
-                  <select
+          <v-card class="mb-6" elevation="2">
+            <v-card-title class="text-h6 font-weight-medium">
+              <v-icon class="mr-2">mdi-map-marker</v-icon>
+              Location Information
+            </v-card-title>
+            <v-card-text>
+              <v-row>
+                <v-col cols="12" md="6">
+                  <v-select
                     v-model="form.lga_id"
-                    id="lga_id"
-                    @change="onLgaChange"
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  >
-                    <option value="">Select LGA</option>
-                    <option v-for="lga in lgas" :key="lga.id" :value="lga.id">{{ lga.name }}</option>
-                  </select>
-                </div>
-                <div>
-                  <label for="ward_id" class="block text-sm font-medium text-gray-700">Ward</label>
-                  <select
+                    label="Local Government Area"
+                    variant="outlined"
+                    :items="lgas"
+                    item-title="name"
+                    item-value="id"
+                    prepend-inner-icon="mdi-city"
+                    @update:model-value="onLgaChange"
+                    clearable
+                  />
+                </v-col>
+                <v-col cols="12" md="6">
+                  <v-select
                     v-model="form.ward_id"
-                    id="ward_id"
+                    label="Ward"
+                    variant="outlined"
+                    :items="wards"
+                    item-title="name"
+                    item-value="id"
+                    prepend-inner-icon="mdi-home-city"
                     :disabled="!form.lga_id"
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-gray-100"
-                  >
-                    <option value="">Select Ward</option>
-                    <option v-for="ward in wards" :key="ward.id" :value="ward.id">{{ ward.name }}</option>
-                  </select>
-                </div>
-                <div>
-                  <label for="latitude" class="block text-sm font-medium text-gray-700">Latitude</label>
-                  <input
+                    clearable
+                  />
+                </v-col>
+                <v-col cols="12" md="6">
+                  <v-text-field
                     v-model.number="form.latitude"
+                    label="Latitude"
+                    variant="outlined"
                     type="number"
-                    id="latitude"
                     step="0.000001"
                     min="-90"
                     max="90"
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    prepend-inner-icon="mdi-crosshairs-gps"
                   />
-                </div>
-                <div>
-                  <label for="longitude" class="block text-sm font-medium text-gray-700">Longitude</label>
-                  <input
+                </v-col>
+                <v-col cols="12" md="6">
+                  <v-text-field
                     v-model.number="form.longitude"
+                    label="Longitude"
+                    variant="outlined"
                     type="number"
-                    id="longitude"
                     step="0.000001"
                     min="-180"
                     max="180"
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    prepend-inner-icon="mdi-crosshairs-gps"
                   />
-                </div>
-                <div class="sm:col-span-2">
-                  <label for="address" class="block text-sm font-medium text-gray-700">Address</label>
-                  <input
+                </v-col>
+                <v-col cols="12">
+                  <v-text-field
                     v-model="form.address"
-                    type="text"
-                    id="address"
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    label="Address"
+                    variant="outlined"
+                    prepend-inner-icon="mdi-home-map-marker"
                   />
-                </div>
-                <div class="sm:col-span-2">
-                  <label for="location_description" class="block text-sm font-medium text-gray-700">Location Description</label>
-                  <textarea
+                </v-col>
+                <v-col cols="12">
+                  <v-textarea
                     v-model="form.location_description"
-                    id="location_description"
+                    label="Location Description"
+                    variant="outlined"
                     rows="3"
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  ></textarea>
-                </div>
-              </div>
-            </div>
-          </div>
+                    prepend-inner-icon="mdi-text-box-outline"
+                  />
+                </v-col>
+              </v-row>
+            </v-card-text>
+          </v-card>
 
           <!-- Project Description -->
-          <div class="bg-white shadow rounded-lg">
-            <div class="px-4 py-5 sm:p-6">
-              <h3 class="text-lg font-medium text-gray-900 mb-6">Project Description</h3>
-              <div class="space-y-6">
-                <div>
-                  <label for="overall_goal" class="block text-sm font-medium text-gray-700">Overall Goal</label>
-                  <textarea
+          <v-card class="mb-6" elevation="2">
+            <v-card-title class="text-h6 font-weight-medium">
+              <v-icon class="mr-2">mdi-text-box-multiple-outline</v-icon>
+              Project Description
+            </v-card-title>
+            <v-card-text>
+              <v-row>
+                <v-col cols="12">
+                  <v-textarea
                     v-model="form.overall_goal"
-                    id="overall_goal"
+                    label="Overall Goal"
+                    variant="outlined"
                     rows="3"
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  ></textarea>
-                </div>
-                <div>
-                  <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
-                  <textarea
+                    prepend-inner-icon="mdi-target"
+                  />
+                </v-col>
+                <v-col cols="12">
+                  <v-textarea
                     v-model="form.description"
-                    id="description"
+                    label="Description"
+                    variant="outlined"
                     rows="4"
-                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  ></textarea>
-                </div>
-              </div>
-            </div>
-          </div>
+                    prepend-inner-icon="mdi-text-long"
+                  />
+                </v-col>
+              </v-row>
+            </v-card-text>
+          </v-card>
 
           <!-- Submit Button -->
-          <div class="flex justify-end space-x-3">
-            <button
-              type="button"
+          <v-card-actions class="justify-end pa-4">
+            <v-btn
+              variant="outlined"
               @click="navigateTo('projects.show', { id: project.id })"
-              class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              prepend-icon="mdi-arrow-left"
             >
               Cancel
-            </button>
-            <button
+            </v-btn>
+            <v-btn
               type="submit"
-              :disabled="submitting"
-              class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              color="primary"
+              :loading="submitting"
+              prepend-icon="mdi-content-save"
             >
-              <svg v-if="submitting" class="animate-spin -ml-1 mr-3 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
               {{ submitting ? 'Updating...' : 'Update Project' }}
-            </button>
-          </div>
-        </form>
+            </v-btn>
+          </v-card-actions>
+        </v-form>
       </div>
     </div>
   </AppSidebarLayout>
@@ -411,6 +423,14 @@ const lgas = ref<LGA[]>([]);
 const wards = ref<Ward[]>([]);
 const loading = ref(true);
 const submitting = ref(false);
+
+const statusOptions = [
+  { label: 'Not Started', value: 'not_started' },
+  { label: 'In Progress', value: 'in_progress' },
+  { label: 'On Hold', value: 'on_hold' },
+  { label: 'Completed', value: 'completed' },
+  { label: 'Cancelled', value: 'cancelled' },
+];
 
 const form = reactive({
   name: '',
