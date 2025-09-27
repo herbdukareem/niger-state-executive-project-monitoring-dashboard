@@ -48,12 +48,43 @@ function runArtisanCommand($command, $description) {
 echo "Step 1: Clearing configuration cache...\n";
 runArtisanCommand("config:clear", "Clear configuration cache");
 
-// Step 2: Run migrations
-echo "Step 2: Running database migrations...\n";
+// Step 2: Check migration status and run migrations
+echo "Step 2: Checking and running database migrations...\n";
+
+// First, let's check if we need to reset migrations due to dependency issues
+echo "Checking migration status...\n";
+$output = [];
+exec("php artisan migrate:status 2>&1", $output, $returnCode);
+
+$needsReset = false;
+foreach ($output as $line) {
+    if (strpos($line, 'wards') !== false && strpos($line, 'Pending') !== false) {
+        $needsReset = true;
+        break;
+    }
+}
+
+if ($needsReset) {
+    echo "Detected migration dependency issues. Resetting migrations...\n";
+    runArtisanCommand("migrate:reset", "Reset migrations");
+}
+
 if (!runArtisanCommand("migrate", "Run database migrations")) {
-    echo "Migration failed. Please check your database configuration in .env file.\n";
-    echo "Make sure your database exists and connection details are correct.\n";
-    exit(1);
+    echo "Migration failed. Trying to fix dependency issues...\n";
+
+    // Try to run specific migrations in order
+    echo "Running LGA migration first...\n";
+    runArtisanCommand("migrate --path=database/migrations/2025_09_26_231900_create_lgas_table.php", "Create LGAs table");
+
+    echo "Running Wards migration...\n";
+    runArtisanCommand("migrate --path=database/migrations/2025_09_26_231910_create_wards_table.php", "Create Wards table");
+
+    echo "Running remaining migrations...\n";
+    if (!runArtisanCommand("migrate", "Run remaining migrations")) {
+        echo "Migration failed. Please check your database configuration in .env file.\n";
+        echo "Make sure your database exists and connection details are correct.\n";
+        exit(1);
+    }
 }
 
 // Step 3: Run seeders
