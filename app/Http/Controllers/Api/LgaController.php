@@ -13,11 +13,20 @@ class LgaController extends Controller
      */
     public function index(): JsonResponse
     {
-        $lgas = Lga::with(['wards:id,lga_id,name,code'])
+        $lgas = Lga::with(['wards:id,lga_id,name,code', 'projects:id,lga_id,progress_percentage,total_budget'])
             ->withCount(['projects', 'wards'])
             ->orderBy('name')
             ->get()
             ->map(function ($lga) {
+                // Calculate average progress and total budget for this LGA
+                $averageProgress = 0;
+                $totalBudget = 0;
+
+                if ($lga->projects->count() > 0) {
+                    $averageProgress = $lga->projects->avg('progress_percentage');
+                    $totalBudget = $lga->projects->sum('total_budget');
+                }
+
                 return [
                     'id' => $lga->id,
                     'name' => $lga->name,
@@ -31,6 +40,8 @@ class LgaController extends Controller
                     'description' => $lga->description,
                     'projects_count' => $lga->projects_count,
                     'wards_count' => $lga->wards_count,
+                    'average_progress' => round($averageProgress, 1),
+                    'total_budget' => $totalBudget,
                     'wards' => $lga->wards->map(function ($ward) {
                         return [
                             'id' => $ward->id,
