@@ -14,15 +14,13 @@ return new class extends Migration
         Schema::table('projects', function (Blueprint $table) {
             $table->decimal('latitude', 10, 8)->nullable()->after('project_location');
             $table->decimal('longitude', 11, 8)->nullable()->after('latitude');
-            $table->string('lga_id')->nullable()->after('longitude');
-            $table->string('ward_id')->nullable()->after('lga_id');
-            $table->string('address')->nullable()->after('ward_id');
+            $table->foreignId('lga_id')->nullable()->constrained('lgas')->after('longitude');
+            $table->foreignId('ward_id')->nullable()->constrained('wards')->after('lga_id');
+            $table->string('address', 500)->nullable()->after('ward_id');
             $table->text('location_description')->nullable()->after('address');
-            
+
             // Add indexes for location-based queries
             $table->index(['latitude', 'longitude']);
-            $table->index('lga_id');
-            $table->index('ward_id');
         });
     }
 
@@ -33,12 +31,12 @@ return new class extends Migration
     {
         Schema::table('projects', function (Blueprint $table) {
             $table->dropIndex(['latitude', 'longitude']);
-            $table->dropIndex(['lga_id']);
-            $table->dropIndex(['ward_id']);
-            
+            $table->dropForeign(['lga_id']);
+            $table->dropForeign(['ward_id']);
+
             $table->dropColumn([
                 'latitude',
-                'longitude', 
+                'longitude',
                 'lga_id',
                 'ward_id',
                 'address',

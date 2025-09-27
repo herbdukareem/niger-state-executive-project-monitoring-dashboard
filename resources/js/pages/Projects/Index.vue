@@ -93,47 +93,8 @@ const fetchProjects = async () => {
         projects.value = response.data.data || response.data;
     } catch (error) {
         console.error('Error fetching projects:', error);
-        // Sample data for demonstration
-        projects.value = [
-            {
-                id: 1,
-                name: 'Water Infrastructure Project',
-                id_code: 'WIP-2024-001',
-                status: 'in_progress',
-                progress_percentage: 65,
-                total_budget: 500000,
-                cumulative_expenditure: 325000,
-                start_date: '2024-01-15',
-                end_date: '2024-12-31',
-                project_manager: { id: 1, name: 'John Doe' },
-                updates_count: 12,
-                attachments_count: 8,
-                latest_update: {
-                    id: 1,
-                    title: 'Monthly Progress Report',
-                    created_at: '2024-09-25'
-                }
-            },
-            {
-                id: 2,
-                name: 'Education Initiative',
-                id_code: 'EDU-2024-002',
-                status: 'in_progress',
-                progress_percentage: 40,
-                total_budget: 750000,
-                cumulative_expenditure: 300000,
-                start_date: '2024-03-01',
-                end_date: '2025-02-28',
-                project_manager: { id: 2, name: 'Jane Smith' },
-                updates_count: 8,
-                attachments_count: 15,
-                latest_update: {
-                    id: 2,
-                    title: 'Site Visit Report',
-                    created_at: '2024-09-20'
-                }
-            }
-        ];
+        // Fallback to empty array if API fails
+        projects.value = [];
     } finally {
         loading.value = false;
     }
@@ -159,9 +120,11 @@ onMounted(() => {
 });
 
 const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-NG', {
         style: 'currency',
-        currency: 'USD',
+        currency: 'NGN',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
     }).format(amount);
 };
 

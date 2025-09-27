@@ -380,11 +380,19 @@ const onLGAChange = () => {
 const submitForm = async () => {
   submitting.value = true;
   try {
-    await axios.post('/api/projects', form.value);
+    const response = await axios.post('/api/projects', form.value);
+    console.log('Project created successfully:', response.data);
     navigateTo('projects.index');
   } catch (error) {
     console.error('Error creating project:', error);
-    alert('Error creating project. Please try again.');
+    if (error.response?.data?.errors) {
+      // Handle validation errors
+      const errors = error.response.data.errors;
+      const errorMessages = Object.values(errors).flat().join('\n');
+      alert(`Validation errors:\n${errorMessages}`);
+    } else {
+      alert('Error creating project. Please try again.');
+    }
   } finally {
     submitting.value = false;
   }

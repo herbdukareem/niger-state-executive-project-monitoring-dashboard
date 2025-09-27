@@ -14,6 +14,8 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
+            LgaSeeder::class,
+            WardSeeder::class,
             ProjectSeeder::class,
         ]);
     }
