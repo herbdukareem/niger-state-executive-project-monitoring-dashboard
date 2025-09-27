@@ -17,15 +17,30 @@
             </div>
             <div class="mt-4 flex md:mt-0 md:ml-4 space-x-3">
               <button
+                @click="navigateTo('projects.edit', { id: project.id })"
+                class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
+              >
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                </svg>
+                Update Project
+              </button>
+              <button
                 @click="navigateTo('projects.updates.create', { id: project.id })"
                 class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
               >
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
                 Create Update
               </button>
               <button
                 @click="navigateTo('projects.index')"
                 class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
               >
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                </svg>
                 Back to Projects
               </button>
             </div>
@@ -106,26 +121,73 @@
                 <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
                   <div v-if="project.lga_name">
                     <dt class="text-sm font-medium text-gray-500">Local Government Area</dt>
-                    <dd class="mt-1 text-sm text-gray-900">{{ project.lga_name }}</dd>
+                    <dd class="mt-1 text-sm text-gray-900">
+                      <div class="flex items-center">
+                        <svg class="w-4 h-4 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                        {{ project.lga_name }}
+                      </div>
+                    </dd>
                   </div>
                   <div v-if="project.ward_name">
                     <dt class="text-sm font-medium text-gray-500">Ward</dt>
-                    <dd class="mt-1 text-sm text-gray-900">{{ project.ward_name }}</dd>
+                    <dd class="mt-1 text-sm text-gray-900">
+                      <div class="flex items-center">
+                        <svg class="w-4 h-4 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                        </svg>
+                        {{ project.ward_name }}
+                      </div>
+                    </dd>
                   </div>
                   <div v-if="project.latitude && project.longitude">
                     <dt class="text-sm font-medium text-gray-500">Coordinates</dt>
                     <dd class="mt-1 text-sm text-gray-900">
-                      {{ project.latitude.toFixed(6) }}, {{ project.longitude.toFixed(6) }}
+                      <div class="flex items-center">
+                        <svg class="w-4 h-4 mr-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
+                        </svg>
+                        {{ project.latitude.toFixed(6) }}, {{ project.longitude.toFixed(6) }}
+                      </div>
                     </dd>
                   </div>
                   <div v-if="project.address">
                     <dt class="text-sm font-medium text-gray-500">Address</dt>
-                    <dd class="mt-1 text-sm text-gray-900">{{ project.address }}</dd>
+                    <dd class="mt-1 text-sm text-gray-900">
+                      <div class="flex items-start">
+                        <svg class="w-4 h-4 mr-2 mt-0.5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                        </svg>
+                        {{ project.address }}
+                      </div>
+                    </dd>
                   </div>
                   <div v-if="project.location_description" class="sm:col-span-2">
                     <dt class="text-sm font-medium text-gray-500">Location Description</dt>
                     <dd class="mt-1 text-sm text-gray-900">{{ project.location_description }}</dd>
                   </div>
+                </div>
+
+                <!-- Project Location Map -->
+                <div v-if="project.latitude && project.longitude" class="mt-6">
+                  <h5 class="text-sm font-medium text-gray-900 mb-3">Project Location on Map</h5>
+                  <div class="h-64 bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
+                    <ProjectMap
+                      :projects="[project]"
+                      :height="256"
+                      :center="[project.latitude, project.longitude]"
+                      :zoom="15"
+                      :show-controls="true"
+                    />
+                  </div>
+                  <p class="mt-2 text-xs text-gray-500">
+                    <svg class="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Click and drag to explore the map. The red marker shows the exact project location.
+                  </p>
                 </div>
               </div>
             </div>

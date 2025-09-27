@@ -7,6 +7,8 @@ import Dashboard from '@/pages/Dashboard.vue'
 import ProjectsIndex from '@/pages/Projects/Index.vue'
 import ProjectsShow from '@/pages/Projects/Show.vue'
 import ProjectsCreate from '@/pages/Projects/Create.vue'
+import ProjectsEdit from '@/pages/Projects/Edit.vue'
+import ProjectsCreateUpdate from '@/pages/Projects/CreateUpdate.vue'
 import Locations from '@/pages/Locations.vue'
 
 const routes: RouteRecordRaw[] = [
@@ -34,6 +36,18 @@ const routes: RouteRecordRaw[] = [
     path: '/projects/:id',
     name: 'projects.show',
     component: ProjectsShow,
+    props: true
+  },
+  {
+    path: '/projects/:id/edit',
+    name: 'projects.edit',
+    component: ProjectsEdit,
+    props: true
+  },
+  {
+    path: '/projects/:id/updates/create',
+    name: 'projects.updates.create',
+    component: ProjectsCreateUpdate,
     props: true
   },
   {
