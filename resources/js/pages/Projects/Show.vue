@@ -211,6 +211,126 @@
         <div v-else class="text-center py-8">
           <div class="text-red-500">Project not found</div>
         </div>
+
+        <!-- Recent Updates Section -->
+        <div v-if="project" class="mt-8">
+          <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+            <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 class="text-lg leading-6 font-medium text-gray-900">Recent Updates</h3>
+                  <p class="mt-1 max-w-2xl text-sm text-gray-500">Latest project progress and activity updates</p>
+                </div>
+                <button
+                  @click="navigateTo('projects.updates.create', { id: project.id })"
+                  class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+                >
+                  <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                  </svg>
+                  Add Update
+                </button>
+              </div>
+            </div>
+
+            <!-- Loading State -->
+            <div v-if="updatesLoading" class="px-4 py-8 text-center">
+              <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+              <p class="mt-2 text-sm text-gray-500">Loading updates...</p>
+            </div>
+
+            <!-- Updates List -->
+            <div v-else-if="projectUpdates.length > 0" class="divide-y divide-gray-200">
+              <div
+                v-for="update in projectUpdates.slice(0, 5)"
+                :key="update.id"
+                class="px-4 py-4 hover:bg-gray-50 cursor-pointer"
+                @click="viewUpdateDetails(update)"
+              >
+                <div class="flex items-center justify-between">
+                  <div class="flex-1">
+                    <div class="flex items-center">
+                      <div class="flex-shrink-0">
+                        <div class="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center">
+                          <svg class="h-4 w-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                          </svg>
+                        </div>
+                      </div>
+                      <div class="ml-4">
+                        <div class="flex items-center">
+                          <p class="text-sm font-medium text-gray-900">{{ update.title }}</p>
+                          <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            {{ formatUpdateType(update.update_type) }}
+                          </span>
+                        </div>
+                        <p class="text-sm text-gray-500 mt-1">{{ update.description.substring(0, 100) }}{{ update.description.length > 100 ? '...' : '' }}</p>
+                        <div class="flex items-center mt-2 text-xs text-gray-400">
+                          <span>{{ formatDate(update.created_at) }}</span>
+                          <span class="mx-2">•</span>
+                          <span>{{ update.creator?.name || 'Unknown' }}</span>
+                          <span v-if="update.attachments_count > 0" class="mx-2">•</span>
+                          <span v-if="update.attachments_count > 0" class="flex items-center">
+                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path>
+                            </svg>
+                            {{ update.attachments_count }} {{ update.attachments_count === 1 ? 'file' : 'files' }}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex-shrink-0">
+                    <div class="flex items-center">
+                      <div class="text-right">
+                        <div class="text-sm font-medium text-gray-900">{{ update.progress_percentage }}%</div>
+                        <div class="w-16 bg-gray-200 rounded-full h-2 mt-1">
+                          <div
+                            class="bg-blue-600 h-2 rounded-full"
+                            :style="{ width: update.progress_percentage + '%' }"
+                          ></div>
+                        </div>
+                      </div>
+                      <svg class="ml-4 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Empty State -->
+            <div v-else class="px-4 py-8 text-center">
+              <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+              </svg>
+              <h3 class="mt-2 text-sm font-medium text-gray-900">No updates yet</h3>
+              <p class="mt-1 text-sm text-gray-500">Get started by creating the first project update.</p>
+              <div class="mt-6">
+                <button
+                  @click="navigateTo('projects.updates.create', { id: project.id })"
+                  class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+                >
+                  <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                  </svg>
+                  Create First Update
+                </button>
+              </div>
+            </div>
+
+            <!-- View All Updates Link -->
+            <div v-if="projectUpdates.length > 5" class="px-4 py-3 bg-gray-50 text-center border-t border-gray-200">
+              <button
+                @click="viewAllUpdates()"
+                class="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+              >
+                View all {{ projectUpdates.length }} updates
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </AppLayout>
@@ -257,7 +377,24 @@ interface Project {
 const router = useRouter();
 const route = useRoute();
 const project = ref<Project | null>(null);
+const projectUpdates = ref<ProjectUpdate[]>([]);
 const loading = ref(true);
+const updatesLoading = ref(false);
+
+interface ProjectUpdate {
+  id: number;
+  update_type: string;
+  title: string;
+  description: string;
+  progress_percentage: number;
+  status: string;
+  created_at: string;
+  creator: {
+    id: number;
+    name: string;
+  } | null;
+  attachments_count: number;
+}
 
 const navigateTo = (routeName: string, params?: any) => {
   router.push({ name: routeName, params });
@@ -302,6 +439,30 @@ const formatDate = (dateString: string) => {
   });
 };
 
+const formatUpdateType = (type: string) => {
+  const types = {
+    progress: 'Progress',
+    financial: 'Financial',
+    quality: 'Quality',
+    site_visit: 'Site Visit',
+    milestone: 'Milestone',
+  };
+  return types[type] || type;
+};
+
+const viewUpdateDetails = (update: ProjectUpdate) => {
+  // For now, we'll show an alert with update details
+  // Later this can navigate to a dedicated update details page
+  alert(`Update Details:\n\nTitle: ${update.title}\nType: ${formatUpdateType(update.update_type)}\nProgress: ${update.progress_percentage}%\nDescription: ${update.description}\nCreated: ${formatDate(update.created_at)}\nCreated by: ${update.creator?.name || 'Unknown'}`);
+};
+
+const viewAllUpdates = () => {
+  // Navigate to a dedicated updates list page
+  // For now, show all updates in console
+  console.log('All project updates:', projectUpdates.value);
+  alert(`This project has ${projectUpdates.value.length} updates. A dedicated updates page will be implemented soon.`);
+};
+
 const fetchProject = async () => {
   try {
     const projectId = route.params.id;
@@ -315,7 +476,25 @@ const fetchProject = async () => {
   }
 };
 
-onMounted(() => {
-  fetchProject();
+const fetchProjectUpdates = async () => {
+  if (!project.value) return;
+
+  updatesLoading.value = true;
+  try {
+    const response = await axios.get(`/api/projects/${project.value.id}/updates`);
+    projectUpdates.value = response.data.data || [];
+  } catch (error) {
+    console.error('Error fetching project updates:', error);
+    projectUpdates.value = [];
+  } finally {
+    updatesLoading.value = false;
+  }
+};
+
+onMounted(async () => {
+  await fetchProject();
+  if (project.value) {
+    await fetchProjectUpdates();
+  }
 });
 </script>

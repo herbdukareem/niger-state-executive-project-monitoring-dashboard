@@ -258,12 +258,13 @@
               <div class="space-y-4">
                 <!-- File Upload Area -->
                 <v-file-input
+                  v-model="uploadFiles"
                   label="Upload Photos"
                   variant="outlined"
                   multiple
                   accept="image/*"
                   prepend-icon="mdi-camera"
-                  @change="handlePhotoUpload"
+                  @update:model-value="handlePhotoUpload"
                   show-size
                   chips
                   clearable
@@ -413,6 +414,7 @@ const project = ref<Project | null>(null);
 const loading = ref(true);
 const submitting = ref(false);
 const selectedPhotos = ref<PhotoFile[]>([]);
+const uploadFiles = ref<File[]>([]);
 
 const updateTypeOptions = [
   { label: 'Progress Update', value: 'progress' },
@@ -461,9 +463,12 @@ const fetchProject = async () => {
 const handlePhotoUpload = (files: File[] | null) => {
   console.log('Photo upload triggered:', files);
 
+  // Clear previous selections
+  selectedPhotos.value = [];
+
   if (files && files.length > 0) {
     Array.from(files).forEach(file => {
-      console.log('Processing file:', file.name, file.type);
+      console.log('Processing file:', file.name, file.type, file.size);
 
       if (file.type.startsWith('image/')) {
         const reader = new FileReader();
@@ -473,7 +478,7 @@ const handlePhotoUpload = (files: File[] | null) => {
             preview: e.target?.result as string,
             description: ''
           });
-          console.log('Photo added to preview:', file.name);
+          console.log('Photo added to preview:', file.name, 'Total photos:', selectedPhotos.value.length);
         };
         reader.readAsDataURL(file);
       } else {
@@ -525,26 +530,43 @@ const createUpdate = async () => {
 
       const formData = new FormData();
 
-      // Add files to FormData
+      // Add files to FormData with proper array syntax
       selectedPhotos.value.forEach((photo, index) => {
-        formData.append('files[]', photo.file);
-        formData.append(`descriptions[${index}]`, photo.description || '');
+        console.log(`Adding file ${index}:`, photo.file.name, photo.file.size, photo.file.type);
+        formData.append('files[]', photo.file, photo.file.name);
+        if (photo.description) {
+          formData.append(`descriptions[${index}]`, photo.description);
+        }
       });
 
       // Add metadata
       formData.append('project_update_id', createdUpdate.id.toString());
       formData.append('category', 'project_update');
-      formData.append('is_public', 'true');
+      formData.append('is_public', '1');
 
-      console.log('FormData prepared, uploading...');
+      // Log FormData contents for debugging
+      console.log('FormData contents:');
+      for (let pair of formData.entries()) {
+        console.log(pair[0], pair[1]);
+      }
 
-      const attachmentResponse = await axios.post(`/api/projects/${project.value?.id}/attachments`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      try {
+        const attachmentResponse = await axios.post(`/api/projects/${project.value?.id}/attachments`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+          timeout: 30000, // 30 second timeout
+        });
 
-      console.log('Photos uploaded successfully:', attachmentResponse.data);
+        console.log('Photos uploaded successfully:', attachmentResponse.data);
+      } catch (uploadError) {
+        console.error('Photo upload failed:', uploadError);
+        if (uploadError.response) {
+          console.error('Upload error response:', uploadError.response.data);
+        }
+        // Don't fail the entire update if photo upload fails
+        alert('Update created successfully, but some photos failed to upload. Please try uploading them again.');
+      }
     }
 
     // Show success message
