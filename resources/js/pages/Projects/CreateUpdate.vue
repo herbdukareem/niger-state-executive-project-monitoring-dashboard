@@ -459,8 +459,12 @@ const fetchProject = async () => {
 };
 
 const handlePhotoUpload = (files: File[] | null) => {
+  console.log('Photo upload triggered:', files);
+
   if (files && files.length > 0) {
     Array.from(files).forEach(file => {
+      console.log('Processing file:', file.name, file.type);
+
       if (file.type.startsWith('image/')) {
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -469,10 +473,15 @@ const handlePhotoUpload = (files: File[] | null) => {
             preview: e.target?.result as string,
             description: ''
           });
+          console.log('Photo added to preview:', file.name);
         };
         reader.readAsDataURL(file);
+      } else {
+        console.warn('Skipping non-image file:', file.name);
       }
     });
+  } else {
+    console.log('No files provided');
   }
 };
 
@@ -483,46 +492,76 @@ const removePhoto = (index: number) => {
 const createUpdate = async () => {
   submitting.value = true;
   try {
-    // Create the project update
+    // Prepare update data - convert string fields to arrays where needed
     const updateData = {
-      ...form,
+      update_type: form.update_type,
+      title: form.title,
+      description: form.description,
+      progress_percentage: form.progress_percentage,
+      budget_spent_period: form.budget_spent_period,
+      cumulative_budget_spent: form.cumulative_budget_spent,
+      financial_comments: form.financial_comments,
+      visit_date: form.visit_date,
+      weather_conditions: form.weather_conditions,
+      site_conditions: form.site_conditions,
+      // Convert string fields to arrays for JSON storage
       activities_completed: form.description ? [form.description] : [],
       challenges_faced: form.challenges_faced ? [form.challenges_faced] : [],
       next_steps: form.next_steps ? [form.next_steps] : [],
       recommendations: form.recommendations ? [form.recommendations] : [],
     };
 
+    console.log('Sending update data:', updateData);
+
+    // Create the project update
     const updateResponse = await axios.post(`/api/projects/${project.value?.id}/updates`, updateData);
     const createdUpdate = updateResponse.data.data;
 
+    console.log('Update created successfully:', createdUpdate);
+
     // Upload photos if any
     if (selectedPhotos.value.length > 0) {
+      console.log('Uploading photos:', selectedPhotos.value.length);
+
       const formData = new FormData();
 
+      // Add files to FormData
       selectedPhotos.value.forEach((photo, index) => {
         formData.append('files[]', photo.file);
         formData.append(`descriptions[${index}]`, photo.description || '');
       });
 
+      // Add metadata
       formData.append('project_update_id', createdUpdate.id.toString());
       formData.append('category', 'project_update');
       formData.append('is_public', 'true');
 
-      await axios.post(`/api/projects/${project.value?.id}/attachments`, formData, {
+      console.log('FormData prepared, uploading...');
+
+      const attachmentResponse = await axios.post(`/api/projects/${project.value?.id}/attachments`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
+
+      console.log('Photos uploaded successfully:', attachmentResponse.data);
     }
 
-    console.log('Project update created successfully:', createdUpdate);
+    // Show success message
+    alert('Project update created successfully!');
+
+    // Navigate back to project details
     navigateTo('projects.show', { id: project.value?.id });
+
   } catch (error) {
     console.error('Error creating project update:', error);
+
     if (error.response?.data?.errors) {
       const errors = error.response.data.errors;
       const errorMessages = Object.values(errors).flat().join('\n');
       alert(`Validation errors:\n${errorMessages}`);
+    } else if (error.response?.data?.message) {
+      alert(`Error: ${error.response.data.message}`);
     } else {
       alert('Error creating project update. Please try again.');
     }
@@ -531,8 +570,19 @@ const createUpdate = async () => {
   }
 };
 
+// Debug function to test API
+const testAPI = async () => {
+  try {
+    const response = await axios.get('/api/test');
+    console.log('API test successful:', response.data);
+  } catch (error) {
+    console.error('API test failed:', error);
+  }
+};
+
 onMounted(() => {
   fetchProject();
+  testAPI(); // Test API connection
 });
 </script>
 
