@@ -262,8 +262,8 @@ onMounted(() => {
             <v-card
               :color="card.color"
               variant="tonal"
-              class="h-100"
-              :class="`animate__animated animate__fadeInUp animate__delay-${index}s`"
+              class="h-100 animate__animated animate__fadeInUp stats-card-hover"
+              :class="`stagger-${index + 1}`"
             >
               <v-card-text>
                 <div class="d-flex align-center justify-space-between">
@@ -290,7 +290,7 @@ onMounted(() => {
         <!-- Interactive Map -->
         <v-row class="mb-6">
           <v-col cols="12">
-            <v-card class="animate__animated animate__fadeInUp animate__delay-1s">
+            <v-card class="animate__animated animate__fadeInUp stagger-5">
               <v-card-title class="d-flex align-center">
                 <v-icon class="mr-2">mdi-map-marker-multiple</v-icon>
                 Project Locations Map
@@ -314,7 +314,7 @@ onMounted(() => {
         <!-- Recent Activity and Alerts -->
         <v-row class="mb-6">
           <v-col cols="12" lg="8">
-            <v-card class="animate__animated animate__fadeInUp animate__delay-2s">
+            <v-card class="animate__animated animate__fadeInUp stagger-6">
               <v-card-title class="d-flex align-center">
                 <v-icon class="mr-2">mdi-clock-outline</v-icon>
                 Recent Project Activity
@@ -362,7 +362,7 @@ onMounted(() => {
           </v-col>
 
           <v-col cols="12" lg="4">
-            <v-card class="animate__animated animate__fadeInUp animate__delay-2s">
+            <v-card class="animate__animated animate__fadeInUp stagger-6">
               <v-card-title class="d-flex align-center">
                 <v-icon class="mr-2">mdi-alert-circle-outline</v-icon>
                 Alerts & Notifications
@@ -415,7 +415,7 @@ onMounted(() => {
         <!-- Zone and LGA Performance -->
         <v-row v-if="dashboardStats?.zone_stats.length" class="mb-6">
           <v-col cols="12" md="6">
-            <v-card class="animate__animated animate__fadeInUp animate__delay-3s">
+            <v-card class="animate__animated animate__fadeInUp stagger-4">
               <v-card-title class="d-flex align-center">
                 <v-icon class="mr-2">mdi-map-outline</v-icon>
                 Zone Performance
@@ -442,7 +442,7 @@ onMounted(() => {
           </v-col>
 
           <v-col cols="12" md="6">
-            <v-card class="animate__animated animate__fadeInUp animate__delay-3s">
+            <v-card class="animate__animated animate__fadeInUp stagger-5">
               <v-card-title class="d-flex align-center">
                 <v-icon class="mr-2">mdi-trophy</v-icon>
                 Top Performing LGAs
@@ -479,22 +479,7 @@ onMounted(() => {
   cursor: pointer;
 }
 
-/* Animation delays */
-.animate__delay-0s {
-  animation-delay: 0.1s;
-}
-
-.animate__delay-1s {
-  animation-delay: 0.2s;
-}
-
-.animate__delay-2s {
-  animation-delay: 0.3s;
-}
-
-.animate__delay-3s {
-  animation-delay: 0.4s;
-}
+/* Animation delays are now handled by the custom animations.css file */
 
 /* Custom card hover effects */
 .v-card {
