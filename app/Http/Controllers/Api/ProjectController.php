@@ -14,7 +14,7 @@ class ProjectController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Project::with(['projectManager:id,name', 'lga:id,name', 'ward:id,name', 'latestUpdate'])
+        $query = Project::with(['projectManager:id,name', 'lga:id,name,latitude,longitude', 'ward:id,name', 'latestUpdate'])
             ->withCount(['updates', 'attachments']);
 
         // Filter by status
@@ -61,6 +61,8 @@ class ProjectController extends Controller
                 'longitude' => $project->longitude,
                 'lga_id' => $project->lga_id,
                 'lga_name' => $project->lga?->name,
+                'lga_latitude' => $project->lga?->latitude,
+                'lga_longitude' => $project->lga?->longitude,
                 'ward_id' => $project->ward_id,
                 'ward_name' => $project->ward?->name,
                 'address' => $project->address,

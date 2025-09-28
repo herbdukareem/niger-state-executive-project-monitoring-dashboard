@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
@@ -22,9 +23,13 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-        'role',
+        'role_id',
         'organization',
         'position',
+        'phone',
+        'address',
+        'is_active',
+        'last_login_at',
     ];
 
     /**
@@ -47,7 +52,17 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean',
+            'last_login_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Get the role for this user.
+     */
+    public function role(): BelongsTo
+    {
+        return $this->belongsTo(Role::class);
     }
 
     /**
@@ -67,11 +82,51 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user has a specific permission.
+     */
+    public function hasPermission(string $permission): bool
+    {
+        return $this->role?->hasPermission($permission) ?? false;
+    }
+
+    /**
+     * Check if user has any of the given permissions.
+     */
+    public function hasAnyPermission(array $permissions): bool
+    {
+        return $this->role?->hasAnyPermission($permissions) ?? false;
+    }
+
+    /**
+     * Check if user has all of the given permissions.
+     */
+    public function hasAllPermissions(array $permissions): bool
+    {
+        return $this->role?->hasAllPermissions($permissions) ?? false;
+    }
+
+    /**
+     * Check if user is a governor.
+     */
+    public function isGovernor(): bool
+    {
+        return $this->role?->name === 'governor';
+    }
+
+    /**
+     * Check if user is a super admin.
+     */
+    public function isSuperAdmin(): bool
+    {
+        return $this->role?->name === 'super_admin';
+    }
+
+    /**
      * Check if user is an admin.
      */
     public function isAdmin(): bool
     {
-        return $this->role === 'admin';
+        return $this->role?->name === 'admin';
     }
 
     /**
@@ -79,14 +134,46 @@ class User extends Authenticatable
      */
     public function isProjectManager(): bool
     {
-        return $this->role === 'project_manager';
+        return $this->role?->name === 'project_manager';
     }
 
     /**
-     * Check if user is an officer.
+     * Check if user can manage users (create, edit, delete).
      */
-    public function isOfficer(): bool
+    public function canManageUsers(): bool
     {
-        return $this->role === 'officer';
+        return $this->hasPermission('manage_users');
+    }
+
+    /**
+     * Check if user can manage projects.
+     */
+    public function canManageProjects(): bool
+    {
+        return $this->hasPermission('manage_projects');
+    }
+
+    /**
+     * Check if user can manage settings.
+     */
+    public function canManageSettings(): bool
+    {
+        return $this->hasPermission('manage_settings');
+    }
+
+    /**
+     * Get user's role name.
+     */
+    public function getRoleNameAttribute(): string
+    {
+        return $this->role?->display_name ?? 'No Role';
+    }
+
+    /**
+     * Update last login timestamp.
+     */
+    public function updateLastLogin(): void
+    {
+        $this->update(['last_login_at' => now()]);
     }
 }

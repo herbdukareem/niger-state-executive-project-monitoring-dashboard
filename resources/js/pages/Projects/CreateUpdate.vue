@@ -268,6 +268,7 @@
                   show-size
                   chips
                   clearable
+                  :rules="[v => !v || v.length <= 10 || 'Maximum 10 files allowed']"
                 />
 
                 <v-alert
@@ -463,27 +464,43 @@ const fetchProject = async () => {
 const handlePhotoUpload = (files: File[] | null) => {
   console.log('Photo upload triggered:', files);
 
-  // Clear previous selections
-  selectedPhotos.value = [];
-
+  // Don't clear previous selections, allow adding more photos
   if (files && files.length > 0) {
+    const newPhotos: PhotoFile[] = [];
+
     Array.from(files).forEach(file => {
       console.log('Processing file:', file.name, file.type, file.size);
 
-      if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          selectedPhotos.value.push({
-            file,
-            preview: e.target?.result as string,
-            description: ''
-          });
-          console.log('Photo added to preview:', file.name, 'Total photos:', selectedPhotos.value.length);
-        };
-        reader.readAsDataURL(file);
-      } else {
-        console.warn('Skipping non-image file:', file.name);
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        alert(`File ${file.name} is too large. Maximum size is 10MB.`);
+        return;
       }
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert(`File ${file.name} is not an image. Please select only image files.`);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const photoFile: PhotoFile = {
+          file,
+          preview: e.target?.result as string,
+          description: ''
+        };
+
+        // Add to new photos array
+        newPhotos.push(photoFile);
+
+        // Update selected photos when all files are processed
+        if (newPhotos.length === files.length) {
+          selectedPhotos.value = [...selectedPhotos.value, ...newPhotos];
+          console.log('All photos processed. Total photos:', selectedPhotos.value.length);
+        }
+      };
+      reader.readAsDataURL(file);
     });
   } else {
     console.log('No files provided');
@@ -534,9 +551,7 @@ const createUpdate = async () => {
       selectedPhotos.value.forEach((photo, index) => {
         console.log(`Adding file ${index}:`, photo.file.name, photo.file.size, photo.file.type);
         formData.append('files[]', photo.file, photo.file.name);
-        if (photo.description) {
-          formData.append(`descriptions[${index}]`, photo.description);
-        }
+        formData.append(`descriptions[${index}]`, photo.description || '');
       });
 
       // Add metadata

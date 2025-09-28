@@ -331,6 +331,144 @@
             </div>
           </div>
         </div>
+
+        <!-- Update Details Modal -->
+        <v-dialog v-model="updateDetailsDialog" max-width="800px" scrollable>
+          <v-card v-if="selectedUpdate">
+            <v-card-title class="text-h5 pa-4 bg-primary text-white">
+              <v-icon class="mr-2">mdi-update</v-icon>
+              {{ selectedUpdate.title }}
+              <v-spacer />
+              <v-btn icon variant="text" @click="updateDetailsDialog = false">
+                <v-icon>mdi-close</v-icon>
+              </v-btn>
+            </v-card-title>
+
+            <v-card-text class="pa-0">
+              <v-container>
+                <!-- Update Info -->
+                <v-row>
+                  <v-col cols="12" md="6">
+                    <v-chip :color="getUpdateTypeColor(selectedUpdate.update_type)" variant="flat" class="mb-2">
+                      <v-icon start>{{ getUpdateTypeIcon(selectedUpdate.update_type) }}</v-icon>
+                      {{ formatUpdateType(selectedUpdate.update_type) }}
+                    </v-chip>
+                  </v-col>
+                  <v-col cols="12" md="6" class="text-right">
+                    <div class="text-h6">{{ selectedUpdate.progress_percentage }}%</div>
+                    <v-progress-linear
+                      :model-value="selectedUpdate.progress_percentage"
+                      color="primary"
+                      height="8"
+                      rounded
+                    />
+                  </v-col>
+                </v-row>
+
+                <!-- Description -->
+                <v-row>
+                  <v-col cols="12">
+                    <h3 class="text-h6 mb-2">Description</h3>
+                    <p class="text-body-1">{{ selectedUpdate.description }}</p>
+                  </v-col>
+                </v-row>
+
+                <!-- Update Details -->
+                <v-row>
+                  <v-col cols="12" md="6">
+                    <v-list density="compact">
+                      <v-list-item>
+                        <v-list-item-title>Created Date</v-list-item-title>
+                        <v-list-item-subtitle>{{ formatDate(selectedUpdate.created_at) }}</v-list-item-subtitle>
+                      </v-list-item>
+                      <v-list-item>
+                        <v-list-item-title>Created By</v-list-item-title>
+                        <v-list-item-subtitle>{{ selectedUpdate.creator?.name || 'Unknown' }}</v-list-item-subtitle>
+                      </v-list-item>
+                      <v-list-item>
+                        <v-list-item-title>Status</v-list-item-title>
+                        <v-list-item-subtitle>
+                          <v-chip size="small" :color="getStatusColor(selectedUpdate.status)">
+                            {{ selectedUpdate.status }}
+                          </v-chip>
+                        </v-list-item-subtitle>
+                      </v-list-item>
+                    </v-list>
+                  </v-col>
+                </v-row>
+
+                <!-- Photos Section -->
+                <v-row v-if="updateAttachments.length > 0">
+                  <v-col cols="12">
+                    <h3 class="text-h6 mb-3">
+                      <v-icon class="mr-2">mdi-camera</v-icon>
+                      Photos ({{ updateAttachments.length }})
+                    </h3>
+                    <v-row>
+                      <v-col
+                        v-for="(attachment, index) in updateAttachments"
+                        :key="attachment.id"
+                        cols="12"
+                        sm="6"
+                        md="4"
+                      >
+                        <v-card elevation="2" class="photo-card">
+                          <v-img
+                            :src="attachment.download_url"
+                            :alt="attachment.description || attachment.original_filename"
+                            height="200"
+                            cover
+                            class="cursor-pointer"
+                            @click="openImageViewer(attachment)"
+                          >
+                            <template v-slot:placeholder>
+                              <div class="d-flex align-center justify-center fill-height">
+                                <v-progress-circular indeterminate color="primary" />
+                              </div>
+                            </template>
+                          </v-img>
+                          <v-card-text v-if="attachment.description" class="pa-2">
+                            <p class="text-caption mb-0">{{ attachment.description }}</p>
+                          </v-card-text>
+                          <v-card-actions class="pa-2">
+                            <v-btn
+                              size="small"
+                              variant="text"
+                              :href="attachment.download_url"
+                              target="_blank"
+                              prepend-icon="mdi-download"
+                            >
+                              Download
+                            </v-btn>
+                            <v-spacer />
+                            <span class="text-caption text-medium-emphasis">
+                              {{ attachment.human_file_size }}
+                            </span>
+                          </v-card-actions>
+                        </v-card>
+                      </v-col>
+                    </v-row>
+                  </v-col>
+                </v-row>
+
+                <!-- No Photos State -->
+                <v-row v-else>
+                  <v-col cols="12" class="text-center py-8">
+                    <v-icon size="64" color="grey-lighten-2">mdi-camera-off</v-icon>
+                    <p class="text-body-2 text-medium-emphasis mt-2">No photos attached to this update</p>
+                  </v-col>
+                </v-row>
+              </v-container>
+            </v-card-text>
+
+            <v-card-actions class="pa-4">
+              <v-spacer />
+              <v-btn variant="outlined" @click="updateDetailsDialog = false">
+                Close
+              </v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
       </div>
     </div>
   </AppLayout>
@@ -380,6 +518,9 @@ const project = ref<Project | null>(null);
 const projectUpdates = ref<ProjectUpdate[]>([]);
 const loading = ref(true);
 const updatesLoading = ref(false);
+const selectedUpdate = ref<ProjectUpdate | null>(null);
+const updateDetailsDialog = ref(false);
+const updateAttachments = ref<any[]>([]);
 
 interface ProjectUpdate {
   id: number;
@@ -450,10 +591,18 @@ const formatUpdateType = (type: string) => {
   return types[type] || type;
 };
 
-const viewUpdateDetails = (update: ProjectUpdate) => {
-  // For now, we'll show an alert with update details
-  // Later this can navigate to a dedicated update details page
-  alert(`Update Details:\n\nTitle: ${update.title}\nType: ${formatUpdateType(update.update_type)}\nProgress: ${update.progress_percentage}%\nDescription: ${update.description}\nCreated: ${formatDate(update.created_at)}\nCreated by: ${update.creator?.name || 'Unknown'}`);
+const viewUpdateDetails = async (update: ProjectUpdate) => {
+  selectedUpdate.value = update;
+  updateDetailsDialog.value = true;
+
+  // Fetch update attachments
+  try {
+    const response = await axios.get(`/api/projects/${project.value?.id}/updates/${update.id}`);
+    updateAttachments.value = response.data.attachments || [];
+  } catch (error) {
+    console.error('Error fetching update attachments:', error);
+    updateAttachments.value = [];
+  }
 };
 
 const viewAllUpdates = () => {
@@ -461,6 +610,43 @@ const viewAllUpdates = () => {
   // For now, show all updates in console
   console.log('All project updates:', projectUpdates.value);
   alert(`This project has ${projectUpdates.value.length} updates. A dedicated updates page will be implemented soon.`);
+};
+
+const getUpdateTypeColor = (type: string) => {
+  const colors = {
+    progress: 'blue',
+    financial: 'green',
+    quality: 'orange',
+    site_visit: 'purple',
+    milestone: 'red',
+  };
+  return colors[type] || 'grey';
+};
+
+const getUpdateTypeIcon = (type: string) => {
+  const icons = {
+    progress: 'mdi-progress-clock',
+    financial: 'mdi-currency-usd',
+    quality: 'mdi-star',
+    site_visit: 'mdi-map-marker-check',
+    milestone: 'mdi-flag-checkered',
+  };
+  return icons[type] || 'mdi-update';
+};
+
+const getStatusColor = (status: string) => {
+  const colors = {
+    draft: 'grey',
+    pending: 'orange',
+    approved: 'green',
+    rejected: 'red',
+  };
+  return colors[status] || 'grey';
+};
+
+const openImageViewer = (attachment: any) => {
+  // Open image in new tab for now
+  window.open(attachment.download_url, '_blank');
 };
 
 const fetchProject = async () => {

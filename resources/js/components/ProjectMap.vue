@@ -219,6 +219,35 @@ const selectedProject = ref<Project | null>(null);
 const showLgaInfo = ref(false);
 const selectedLga = ref<LGA | null>(null);
 
+// Niger State LGA coordinates (approximate centers)
+const lgaCoordinates = {
+  'Agaie': [9.0167, 6.3333],
+  'Agwara': [10.9833, 4.2333],
+  'Bida': [9.0833, 6.0167],
+  'Borgu': [10.4667, 4.4333],
+  'Bosso': [9.6167, 6.5500],
+  'Chanchaga': [9.6167, 6.5500],
+  'Edati': [9.0667, 6.1333],
+  'Gbako': [9.3333, 6.4167],
+  'Gurara': [9.2833, 6.8167],
+  'Katcha': [8.8167, 6.2000],
+  'Kontagora': [10.4000, 5.4667],
+  'Lapai': [9.0333, 6.5667],
+  'Lavun': [8.9500, 5.9000],
+  'Magama': [11.3333, 4.7667],
+  'Mariga': [10.4167, 5.8333],
+  'Mashegu': [9.9167, 5.7667],
+  'Mokwa': [9.2833, 5.0500],
+  'Moya': [10.0500, 6.0833],
+  'Paikoro': [9.3000, 6.7333],
+  'Rafi': [10.2667, 6.2000],
+  'Rijau': [11.1333, 5.2667],
+  'Shiroro': [9.9667, 6.8333],
+  'Suleja': [9.1833, 7.1833],
+  'Tafa': [9.3167, 7.3667],
+  'Wushishi': [9.7167, 5.9667]
+};
+
 // Computed properties
 const filteredProjects = computed(() => {
   if (mapView.value === 'all') return props.projects;
@@ -263,18 +292,8 @@ const updateMarkers = () => {
   lgaMarkers.value.forEach(marker => map.value?.removeLayer(marker));
   lgaMarkers.value = [];
 
-  // Add LGA markers if enabled (only for LGAs with projects)
-  if (props.showLgaMarkers && props.lgas) {
-    props.lgas.forEach(lga => {
-      if (lga.latitude && lga.longitude && lga.projects_count && lga.projects_count > 0) {
-        const marker = createLgaMarker(lga);
-        lgaMarkers.value.push(marker);
-        marker.addTo(map.value!);
-      }
-    });
-  }
 
-  // Add markers for filtered projects
+  // Add markers for filtered projects with specific coordinates
   filteredProjects.value.forEach(project => {
     if (project.latitude && project.longitude) {
       const marker = createProjectMarker(project);
@@ -282,6 +301,31 @@ const updateMarkers = () => {
       marker.addTo(map.value!);
     }
   });
+
+  // Add LGA markers for projects without specific coordinates
+  if (props.showLgaMarkers) {
+    const lgaProjectCounts = new Map<string, Project[]>();
+
+    // Group projects by LGA
+    filteredProjects.value.forEach(project => {
+      if (!project.latitude && project.lga_name) {
+        if (!lgaProjectCounts.has(project.lga_name)) {
+          lgaProjectCounts.set(project.lga_name, []);
+        }
+        lgaProjectCounts.get(project.lga_name)!.push(project);
+      }
+    });
+
+    // Create LGA markers
+    lgaProjectCounts.forEach((projects, lgaName) => {
+      const coordinates = lgaCoordinates[lgaName as keyof typeof lgaCoordinates];
+      if (coordinates) {
+        const marker = createLgaMarker(lgaName, projects, coordinates);
+        lgaMarkers.value.push(marker);
+        marker.addTo(map.value!);
+      }
+    });
+  }
 
   // Fit map to markers if any exist
   const allMarkers = [...markers.value, ...lgaMarkers.value];
@@ -351,115 +395,87 @@ const createProjectMarker = (project: Project): L.Marker => {
   return marker;
 };
 
-const createLgaMarker = (lga: LGA): L.Marker => {
-  const projectCount = lga.projects_count || 0;
-  const markerSize = Math.min(Math.max(20 + (projectCount * 2), 24), 36); // Size based on project count
+
+const createLgaMarker = (lgaName: string, projects: Project[], coordinates: number[]): L.Marker => {
+  const projectCount = projects.length;
+  const avgProgress = projects.reduce((sum, p) => sum + p.progress_percentage, 0) / projectCount;
+
 
   const icon = L.divIcon({
     className: 'custom-lga-marker',
     html: `
-      <div class="lga-marker" style="
-        width: ${markerSize}px;
-        height: ${markerSize}px;
+
+      <div class="lga-marker-pin" style="
+        width: 40px;
+        height: 40px;
         border-radius: 50%;
-        background: ${getLgaMarkerColor(lga.zone)};
+        background: linear-gradient(135deg, #4F46E5, #7C3AED);
+        position: relative;
         border: 3px solid white;
-        box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+        box-shadow: 0 3px 6px rgba(0,0,0,0.3);
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: ${Math.max(9, markerSize * 0.3)}px;
-        font-weight: bold;
-        color: white;
-        position: relative;
       ">
-        ${projectCount}
         <div style="
-          position: absolute;
-          bottom: -8px;
-          left: 50%;
-          transform: translateX(-50%);
-          background: ${getLgaMarkerColor(lga.zone)};
           color: white;
-          font-size: 8px;
-          padding: 1px 4px;
-          border-radius: 8px;
-          white-space: nowrap;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+          font-size: 12px;
+          font-weight: bold;
+          text-align: center;
+          line-height: 1;
         ">
-          ${lga.code}
+          ${projectCount}
         </div>
+      </div>
+      <div style="
+        position: absolute;
+        top: -8px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(79, 70, 229, 0.9);
+        color: white;
+        padding: 2px 6px;
+        border-radius: 10px;
+        font-size: 10px;
+        font-weight: bold;
+        white-space: nowrap;
+      ">
+        ${lgaName}
       </div>
     `,
-    iconSize: [markerSize, markerSize + 12],
-    iconAnchor: [markerSize / 2, markerSize / 2]
+    iconSize: [40, 40],
+    iconAnchor: [20, 20]
   });
 
-  const marker = L.marker([lga.latitude, lga.longitude], { icon });
+  const marker = L.marker([coordinates[0], coordinates[1]], { icon });
+
+  const projectsList = projects.map(p =>
+    `<div style="margin: 4px 0; padding: 4px; background: #f8f9fa; border-radius: 4px;">
+      <strong>${p.name}</strong><br>
+      <small>Status: ${formatStatus(p.status)} | Progress: ${p.progress_percentage}%</small>
+    </div>`
+  ).join('');
 
   marker.bindPopup(`
-    <div style="min-width: 240px;">
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-        <h4 style="margin: 0; font-size: 14px; font-weight: bold;">${lga.name} LGA</h4>
-        <span style="
-          background: ${getLgaMarkerColor(lga.zone)};
-          color: white;
-          padding: 2px 8px;
-          border-radius: 12px;
-          font-size: 10px;
-          font-weight: bold;
-        ">${lga.zone}</span>
-      </div>
-
-      <div style="
-        background: #f8f9fa;
-        padding: 8px;
-        border-radius: 6px;
-        margin-bottom: 8px;
-        text-align: center;
-      ">
-        <div style="font-size: 18px; font-weight: bold; color: ${getLgaMarkerColor(lga.zone)};">
-          ${lga.projects_count || 0}
+    <div style="min-width: 250px; max-width: 300px;">
+      <h4 style="margin: 0 0 8px 0; font-size: 16px; font-weight: bold; color: #4F46E5;">${lgaName} LGA</h4>
+      <p style="margin: 4px 0; font-size: 12px;"><strong>Projects:</strong> ${projectCount}</p>
+      <p style="margin: 4px 0; font-size: 12px;"><strong>Average Progress:</strong> ${Math.round(avgProgress)}%</p>
+      <div style="margin: 8px 0;">
+        <div style="background: #e5e7eb; height: 6px; border-radius: 3px; overflow: hidden;">
+          <div style="background: ${getProgressColor(avgProgress)}; height: 100%; width: ${avgProgress}%; transition: width 0.3s;"></div>
         </div>
-        <div style="font-size: 11px; color: #666;">Active Projects</div>
       </div>
-
-      <p style="margin: 4px 0; font-size: 12px;"><strong>Code:</strong> ${lga.code}</p>
-      <p style="margin: 4px 0; font-size: 12px;"><strong>Headquarters:</strong> ${lga.headquarters}</p>
-      ${lga.population_estimate ? `<p style="margin: 4px 0; font-size: 12px;"><strong>Population:</strong> ${lga.population_estimate.toLocaleString()}</p>` : ''}
-      ${lga.area_km2 ? `<p style="margin: 4px 0; font-size: 12px;"><strong>Area:</strong> ${lga.area_km2} km²</p>` : ''}
-      ${lga.average_progress ? `<p style="margin: 4px 0; font-size: 12px;"><strong>Avg Progress:</strong> ${lga.average_progress}%</p>` : ''}
-
-      <button onclick="window.viewLgaProjects(${lga.id})" style="
-        background: ${getLgaMarkerColor(lga.zone)};
-        color: white;
-        border: none;
-        padding: 6px 12px;
-        border-radius: 4px;
-        font-size: 11px;
-        cursor: pointer;
-        margin-top: 8px;
-        width: 100%;
-      ">View Projects</button>
+      <div style="max-height: 200px; overflow-y: auto; margin-top: 8px;">
+        <h5 style="margin: 8px 0 4px 0; font-size: 12px; font-weight: bold;">Projects in this LGA:</h5>
+        ${projectsList}
+      </div>
     </div>
   `);
-
-  marker.on('click', () => {
-    selectedLga.value = lga;
-    showLgaInfo.value = true;
-  });
 
   return marker;
 };
 
-const getLgaMarkerColor = (zone: string): string => {
-  const colors = {
-    'Zone A': '#3B82F6',
-    'Zone B': '#10B981',
-    'Zone C': '#F59E0B'
-  };
-  return colors[zone as keyof typeof colors] || '#6B7280';
-};
 
 const getMarkerColor = (status: string): string => {
   const colors = {
@@ -596,11 +612,24 @@ onUnmounted(() => {
   border: none !important;
 }
 
-.lga-marker {
-  transition: all 0.3s ease;
+
+.lga-marker-pin {
+  animation: pulse 2s infinite;
 }
 
-.lga-marker:hover {
-  transform: scale(1.1);
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
 }
 </style>
