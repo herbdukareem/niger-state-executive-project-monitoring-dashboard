@@ -11,6 +11,46 @@
           <v-btn value="completed" size="small">Completed</v-btn>
         </v-btn-toggle>
       </v-card>
+
+      <!-- Zone Legend -->
+      <v-card
+        v-if="showLgaMarkers && lgas && lgas.length > 0"
+        class="pa-2 ma-2"
+        style="position: absolute; bottom: 10px; right: 10px; z-index: 1000;"
+      >
+        <div class="zone-legend">
+          <div class="legend-title text-caption font-weight-bold mb-1">LGA Zones</div>
+          <div class="legend-items">
+            <div class="legend-item d-flex align-center mb-1">
+              <div class="legend-color mr-2" :style="{
+                backgroundColor: '#3B82F6',
+                width: '12px',
+                height: '12px',
+                borderRadius: '50%'
+              }"></div>
+              <span class="text-caption">Zone A</span>
+            </div>
+            <div class="legend-item d-flex align-center mb-1">
+              <div class="legend-color mr-2" :style="{
+                backgroundColor: '#10B981',
+                width: '12px',
+                height: '12px',
+                borderRadius: '50%'
+              }"></div>
+              <span class="text-caption">Zone B</span>
+            </div>
+            <div class="legend-item d-flex align-center">
+              <div class="legend-color mr-2" :style="{
+                backgroundColor: '#F59E0B',
+                width: '12px',
+                height: '12px',
+                borderRadius: '50%'
+              }"></div>
+              <span class="text-caption">Zone C</span>
+            </div>
+          </div>
+        </div>
+      </v-card>
     </div>
 
     <!-- Project Info Popup -->
@@ -50,6 +90,57 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- LGA Info Dialog -->
+    <v-dialog v-model="showLgaInfo" max-width="500">
+      <v-card v-if="selectedLga">
+        <v-card-title class="d-flex align-center">
+          <v-icon class="mr-2">mdi-map-marker</v-icon>
+          {{ selectedLga.name }} LGA
+          <v-spacer />
+          <v-chip :color="getLgaZoneColor(selectedLga.zone)" size="small" variant="flat">
+            {{ selectedLga.zone }}
+          </v-chip>
+        </v-card-title>
+        <v-card-text>
+          <v-row>
+            <v-col cols="6">
+              <div class="text-caption text-grey-darken-1">Code</div>
+              <div class="text-body-2 font-weight-medium">{{ selectedLga.code }}</div>
+            </v-col>
+            <v-col cols="6">
+              <div class="text-caption text-grey-darken-1">Headquarters</div>
+              <div class="text-body-2 font-weight-medium">{{ selectedLga.headquarters }}</div>
+            </v-col>
+            <v-col cols="6" v-if="selectedLga.population_estimate">
+              <div class="text-caption text-grey-darken-1">Population</div>
+              <div class="text-body-2 font-weight-medium">{{ selectedLga.population_estimate.toLocaleString() }}</div>
+            </v-col>
+            <v-col cols="6" v-if="selectedLga.area_km2">
+              <div class="text-caption text-grey-darken-1">Area</div>
+              <div class="text-body-2 font-weight-medium">{{ selectedLga.area_km2 }} km²</div>
+            </v-col>
+            <v-col cols="6" v-if="selectedLga.projects_count">
+              <div class="text-caption text-grey-darken-1">Projects</div>
+              <div class="text-body-2 font-weight-medium">{{ selectedLga.projects_count }}</div>
+            </v-col>
+            <v-col cols="6" v-if="selectedLga.average_progress">
+              <div class="text-caption text-grey-darken-1">Avg Progress</div>
+              <div class="text-body-2 font-weight-medium">{{ selectedLga.average_progress }}%</div>
+            </v-col>
+          </v-row>
+          <div v-if="selectedLga.description" class="mt-3">
+            <div class="text-caption text-grey-darken-1">Description</div>
+            <div class="text-body-2">{{ selectedLga.description }}</div>
+          </div>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn @click="showLgaInfo = false">Close</v-btn>
+          <v-btn color="primary" @click="viewLgaProjects(selectedLga)">View Projects</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
@@ -84,8 +175,25 @@ interface Project {
   ward_name?: string;
 }
 
+interface LGA {
+  id: number;
+  name: string;
+  code: string;
+  headquarters: string;
+  zone: string;
+  latitude: number;
+  longitude: number;
+  population_estimate?: number;
+  area_km2?: number;
+  description?: string;
+  projects_count?: number;
+  total_budget?: number;
+  average_progress?: number;
+}
+
 interface Props {
   projects: Project[];
+  lgas?: LGA[];
   height?: number;
   center?: [number, number];
   zoom?: number;
@@ -93,6 +201,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  lgas: () => [],
   height: 400,
   center: () => [9.6167, 6.5500], // Niger State center
   zoom: 8,
@@ -107,6 +216,8 @@ const lgaMarkers = ref<L.Marker[]>([]);
 const mapView = ref('all');
 const showProjectInfo = ref(false);
 const selectedProject = ref<Project | null>(null);
+const showLgaInfo = ref(false);
+const selectedLga = ref<LGA | null>(null);
 
 // Niger State LGA coordinates (approximate centers)
 const lgaCoordinates = {
@@ -180,6 +291,7 @@ const updateMarkers = () => {
   markers.value = [];
   lgaMarkers.value.forEach(marker => map.value?.removeLayer(marker));
   lgaMarkers.value = [];
+
 
   // Add markers for filtered projects with specific coordinates
   filteredProjects.value.forEach(project => {
@@ -283,13 +395,16 @@ const createProjectMarker = (project: Project): L.Marker => {
   return marker;
 };
 
+
 const createLgaMarker = (lgaName: string, projects: Project[], coordinates: number[]): L.Marker => {
   const projectCount = projects.length;
   const avgProgress = projects.reduce((sum, p) => sum + p.progress_percentage, 0) / projectCount;
 
+
   const icon = L.divIcon({
     className: 'custom-lga-marker',
     html: `
+
       <div class="lga-marker-pin" style="
         width: 40px;
         height: 40px;
@@ -361,6 +476,7 @@ const createLgaMarker = (lgaName: string, projects: Project[], coordinates: numb
   return marker;
 };
 
+
 const getMarkerColor = (status: string): string => {
   const colors = {
     not_started: '#6B7280',
@@ -424,13 +540,39 @@ const viewProject = (project: Project) => {
   showProjectInfo.value = false;
 };
 
-// Global function for popup buttons
+// Global functions for popup buttons
 (window as any).viewProjectDetails = (projectId: number) => {
   router.push({ name: 'projects.show', params: { id: projectId } });
 };
 
+(window as any).viewLgaProjects = (lgaId: number) => {
+  router.push({
+    name: 'projects.index',
+    query: { lga: lgaId }
+  });
+};
+
+const getLgaZoneColor = (zone: string): string => {
+  const colors = {
+    'Zone A': 'primary',
+    'Zone B': 'success',
+    'Zone C': 'warning'
+  };
+  return colors[zone as keyof typeof colors] || 'grey';
+};
+
+const viewLgaProjects = (lga: LGA) => {
+  // Navigate to projects filtered by LGA
+  router.push({
+    name: 'projects.index',
+    query: { lga: lga.id }
+  });
+  showLgaInfo.value = false;
+};
+
 // Watchers
 watch(() => props.projects, updateMarkers, { deep: true });
+watch(() => props.lgas, updateMarkers, { deep: true });
 watch(mapView, updateMarkers);
 
 // Lifecycle
@@ -470,6 +612,7 @@ onUnmounted(() => {
   border: none !important;
 }
 
+
 .lga-marker-pin {
   animation: pulse 2s infinite;
 }
@@ -487,5 +630,6 @@ onUnmounted(() => {
     transform: scale(1);
     opacity: 1;
   }
+
 }
 </style>
