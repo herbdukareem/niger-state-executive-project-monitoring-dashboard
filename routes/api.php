@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\WardController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\ProjectUpdateController;
 use App\Http\Controllers\Api\ProjectAttachmentController;
+use App\Http\Controllers\Api\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -29,6 +30,14 @@ Route::get('/projects/{project}/attachments', [ProjectAttachmentController::clas
 Route::post('/projects/{project}/attachments', [ProjectAttachmentController::class, 'store']);
 Route::delete('/attachments/{attachment}', [ProjectAttachmentController::class, 'destroy']);
 Route::get('/attachments/{attachment}/download', [ProjectAttachmentController::class, 'download'])->name('attachments.download');
+
+// User Management API routes (Protected by permissions)
+Route::middleware(['auth:sanctum'])->group(function () {
+    // User management routes - only for super admins and admins
+    Route::get('/users/roles', [UserController::class, 'getRoles']);
+    Route::apiResource('users', UserController::class);
+    Route::patch('/users/{user}/toggle-status', [UserController::class, 'toggleStatus']);
+});
 
 // Test route for debugging
 Route::get('/test', function () {

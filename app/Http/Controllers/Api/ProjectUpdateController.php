@@ -92,6 +92,14 @@ class ProjectUpdateController extends Controller
                 'status' => 'draft',
             ]);
 
+            // Log the created update for debugging
+            \Log::info('Project update created', [
+                'update_id' => $update->id,
+                'project_id' => $project->id,
+                'title' => $update->title,
+                'user_id' => $request->user()?->id ?? 1
+            ]);
+
             // Update project progress if provided
             if (isset($validated['progress_percentage'])) {
                 $project->update([
@@ -116,10 +124,16 @@ class ProjectUpdateController extends Controller
 
         } catch (\Exception $e) {
             DB::rollback();
-            
+
+            \Log::error('Error creating project update', [
+                'project_id' => $project->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json([
                 'message' => 'Error creating project update',
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
             ], 500);
         }
     }
