@@ -38,6 +38,7 @@ class Project extends Model
         'monitor_name',
         'monitor_title',
         'data_collection_methods',
+        'work_plan_presentation',
     ];
 
     protected $casts = [
@@ -52,6 +53,7 @@ class Project extends Model
         'latitude' => 'decimal:8',
         'longitude' => 'decimal:8',
         'data_collection_methods' => 'array',
+        'work_plan_presentation' => 'boolean',
     ];
 
     /**

@@ -248,6 +248,43 @@
             </v-card-text>
           </v-card>
 
+          <!-- Work Plan Activities Section (if work plan activities update) -->
+          <v-card v-if="form.update_type === 'work_plan_activities'" class="mb-6" elevation="2">
+            <v-card-title class="text-h6 font-weight-medium">
+              <v-icon class="mr-2">mdi-clipboard-list</v-icon>
+              Work Plan Activities Update
+            </v-card-title>
+            <v-card-text>
+              <v-alert
+                type="info"
+                variant="tonal"
+                density="compact"
+                class="mb-4"
+              >
+                <v-icon start>mdi-information</v-icon>
+                Update the status and progress of your project activities. This helps track detailed progress against planned milestones.
+              </v-alert>
+
+              <WorkPlanActivities
+                v-model="workPlanEnabled"
+                v-model:activities="workPlanActivities"
+              />
+
+              <!-- Save Activities Button -->
+              <div class="d-flex justify-end mt-4">
+                <v-btn
+                  color="primary"
+                  variant="outlined"
+                  :loading="savingActivities"
+                  @click="saveWorkPlanActivities"
+                  prepend-icon="mdi-content-save"
+                >
+                  Save Activities
+                </v-btn>
+              </div>
+            </v-card-text>
+          </v-card>
+
           <!-- Photo Upload Section -->
           <v-card class="mb-6" elevation="2">
             <v-card-title class="text-h6 font-weight-medium">
@@ -319,6 +356,8 @@
                     </v-col>
                   </v-row>
                 </div>
+
+                <!-- Photos will be uploaded when update is created -->
               </div>
             </v-card-text>
           </v-card>
@@ -390,9 +429,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive } from 'vue';
+import { ref, onMounted, reactive, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import AppSidebarLayout from '@/layouts/app/AppSidebarLayout.vue';
+import WorkPlanActivities from '@/components/WorkPlanActivities.vue';
 import axios from 'axios';
 
 const route = useRoute();
@@ -403,6 +443,7 @@ interface Project {
   name: string;
   id_code: string;
   progress_percentage: number;
+  work_plan_presentation?: boolean;
 }
 
 interface PhotoFile {
@@ -416,14 +457,30 @@ const loading = ref(true);
 const submitting = ref(false);
 const selectedPhotos = ref<PhotoFile[]>([]);
 const uploadFiles = ref<File[]>([]);
+const workPlanActivities = ref<any[]>([]);
+const workPlanEnabled = ref(true); // Always enabled in update context
+const savingActivities = ref(false);
 
-const updateTypeOptions = [
+// Base update type options
+const baseUpdateTypeOptions = [
   { label: 'Progress Update', value: 'progress' },
   { label: 'Financial Update', value: 'financial' },
   { label: 'Quality Assessment', value: 'quality' },
   { label: 'Site Visit Report', value: 'site_visit' },
   { label: 'Milestone Achievement', value: 'milestone' },
 ];
+
+// Computed update type options based on project settings
+const updateTypeOptions = computed(() => {
+  const options = [...baseUpdateTypeOptions];
+
+  // Only add Work Plan Activities if project has work plan presentation enabled
+  if (project.value?.work_plan_presentation) {
+    options.push({ label: 'Work Plan Activities', value: 'work_plan_activities' });
+  }
+
+  return options;
+});
 
 const form = reactive({
   update_type: 'progress',
@@ -441,6 +498,17 @@ const form = reactive({
   recommendations: '',
 });
 
+// Watch for changes in available update types and reset if current type becomes invalid
+watch(updateTypeOptions, (newOptions) => {
+  const currentType = form.update_type;
+  const isCurrentTypeValid = newOptions.some(option => option.value === currentType);
+
+  // If current update type is no longer valid, reset to 'progress'
+  if (!isCurrentTypeValid) {
+    form.update_type = 'progress';
+  }
+}, { immediate: true });
+
 const navigateTo = (routeName: string, params?: any) => {
   router.push({ name: routeName, params });
 };
@@ -453,6 +521,11 @@ const fetchProject = async () => {
 
     // Set initial progress percentage to current project progress
     form.progress_percentage = project.value.progress_percentage;
+
+    // Fetch work plan activities if project has work plan presentation enabled
+    if (project.value?.work_plan_presentation) {
+      await fetchWorkPlanActivities();
+    }
   } catch (error) {
     console.error('Error fetching project:', error);
     project.value = null;
@@ -511,6 +584,42 @@ const removePhoto = (index: number) => {
   selectedPhotos.value.splice(index, 1);
 };
 
+// Photos will be uploaded as part of the main update creation process
+
+// Work Plan Activities functions
+
+const fetchWorkPlanActivities = async () => {
+  if (!project.value?.id) return;
+
+  try {
+    const response = await axios.get(`/api/projects/${project.value.id}/work-plan-activities`);
+    workPlanActivities.value = response.data.data || [];
+  } catch (error) {
+    console.error('Error fetching work plan activities:', error);
+    workPlanActivities.value = [];
+  }
+};
+
+const saveWorkPlanActivities = async () => {
+  if (!project.value?.id || workPlanActivities.value.length === 0) {
+    alert('No activities to save');
+    return;
+  }
+
+  savingActivities.value = true;
+  try {
+    await axios.post(`/api/projects/${project.value.id}/work-plan-activities`, {
+      activities: workPlanActivities.value
+    });
+    alert('Work plan activities saved successfully!');
+  } catch (error) {
+    console.error('Error saving work plan activities:', error);
+    alert('Failed to save work plan activities. Please try again.');
+  } finally {
+    savingActivities.value = false;
+  }
+};
+
 const createUpdate = async () => {
   submitting.value = true;
   try {
@@ -541,7 +650,9 @@ const createUpdate = async () => {
 
     console.log('Update created successfully:', createdUpdate);
 
-    // Upload photos if any
+    // Work plan activities are saved separately using the "Save Activities" button
+
+    // Upload photos if any (associate with the created update)
     if (selectedPhotos.value.length > 0) {
       console.log('Uploading photos:', selectedPhotos.value.length);
 
@@ -554,7 +665,7 @@ const createUpdate = async () => {
         formData.append(`descriptions[${index}]`, photo.description || '');
       });
 
-      // Add metadata
+      // Add metadata to associate photos with the created update
       formData.append('project_update_id', createdUpdate.id.toString());
       formData.append('category', 'project_update');
       formData.append('is_public', '1');
@@ -576,8 +687,8 @@ const createUpdate = async () => {
         console.log('Photos uploaded successfully:', attachmentResponse.data);
       } catch (uploadError) {
         console.error('Photo upload failed:', uploadError);
-        if (uploadError.response) {
-          console.error('Upload error response:', uploadError.response.data);
+        if ((uploadError as any).response) {
+          console.error('Upload error response:', (uploadError as any).response.data);
         }
         // Don't fail the entire update if photo upload fails
         alert('Update created successfully, but some photos failed to upload. Please try uploading them again.');

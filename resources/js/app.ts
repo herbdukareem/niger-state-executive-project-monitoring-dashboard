@@ -1,9 +1,11 @@
 import '../css/app.css';
 
 import { createApp } from 'vue';
+import { createPinia } from 'pinia';
 import App from './App.vue';
 import router from './router';
 import { initializeTheme } from './composables/useAppearance';
+import { useAuthStore } from './stores/auth';
 
 // Vuetify
 import 'vuetify/styles';
@@ -37,9 +39,15 @@ const vuetify = createVuetify({
 });
 
 const app = createApp(App);
+const pinia = createPinia();
 
+app.use(pinia);
 app.use(router);
 app.use(vuetify);
+
+// Initialize auth store
+const authStore = useAuthStore();
+authStore.initializeAuth();
 
 app.mount('#app');
 

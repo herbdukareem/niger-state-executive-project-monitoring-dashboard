@@ -12,6 +12,7 @@ class WorkPlanActivity extends Model
 
     protected $fillable = [
         'project_id',
+        'activity_number',
         'activity_name',
         'description',
         'planned_start_date',
@@ -20,6 +21,10 @@ class WorkPlanActivity extends Model
         'actual_end_date',
         'status',
         'progress_percentage',
+        'is_tracked',
+        'is_completed',
+        'percentage_complete',
+        'variance_comments',
         'responsible_person',
         'budget_allocated',
         'budget_spent',
@@ -36,6 +41,9 @@ class WorkPlanActivity extends Model
         'actual_start_date' => 'date',
         'actual_end_date' => 'date',
         'progress_percentage' => 'decimal:2',
+        'percentage_complete' => 'decimal:2',
+        'is_tracked' => 'boolean',
+        'is_completed' => 'boolean',
         'budget_allocated' => 'decimal:2',
         'budget_spent' => 'decimal:2',
         'deliverables' => 'array',

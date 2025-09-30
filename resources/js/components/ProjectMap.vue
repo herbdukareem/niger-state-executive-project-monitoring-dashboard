@@ -169,8 +169,8 @@ interface Project {
   status: string;
   progress_percentage: number;
   total_budget: number;
-  latitude?: number;
-  longitude?: number;
+  latitude?: string | number;
+  longitude?: string | number;
   lga_name?: string;
   ward_name?: string;
 }
@@ -366,7 +366,7 @@ const createProjectMarker = (project: Project): L.Marker => {
     iconAnchor: [15, 30]
   });
 
-  const marker = L.marker([project.latitude!, project.longitude!], { icon });
+  const marker = L.marker([parseFloat(String(project.latitude!)), parseFloat(String(project.longitude!))], { icon });
   
   marker.bindPopup(`
     <div style="min-width: 200px;">

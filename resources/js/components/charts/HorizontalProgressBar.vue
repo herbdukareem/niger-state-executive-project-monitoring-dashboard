@@ -1,50 +1,59 @@
 <template>
   <div class="horizontal-progress-container">
-    <div v-if="showLabel" class="progress-header">
-      <span class="progress-title">{{ title }}</span>
-      <span class="progress-percentage">{{ displayValue }}</span>
+    <!-- Error state -->
+    <div v-if="!isValidData" class="progress-error">
+      <v-icon color="error" size="small">mdi-alert-circle</v-icon>
+      <span class="error-text">Invalid data</span>
     </div>
-    
-    <div class="progress-bar-wrapper" :style="{ height: height + 'px' }">
-      <div 
-        class="progress-bar-bg" 
-        :style="{ 
-          backgroundColor: backgroundColor,
-          borderRadius: rounded ? (height / 2) + 'px' : '4px'
-        }"
-      >
-        <div 
-          class="progress-bar-fill"
-          :style="{ 
-            width: progressWidth + '%',
-            backgroundColor: color,
-            borderRadius: rounded ? (height / 2) + 'px' : '4px',
-            transition: animate ? `width ${duration}ms ease-out` : 'none'
+
+    <!-- Normal state -->
+    <template v-else>
+      <div v-if="showLabel" class="progress-header">
+        <span class="progress-title">{{ title }}</span>
+        <span class="progress-percentage">{{ displayValue }}</span>
+      </div>
+
+      <div class="progress-bar-wrapper" :style="{ height: height + 'px' }">
+        <div
+          class="progress-bar-bg"
+          :style="{
+            backgroundColor: backgroundColor,
+            borderRadius: rounded ? (height / 2) + 'px' : '4px'
           }"
         >
-          <div v-if="showGradient" class="progress-gradient"></div>
+          <div
+            class="progress-bar-fill"
+            :style="{
+              width: progressWidth + '%',
+              backgroundColor: color,
+              borderRadius: rounded ? (height / 2) + 'px' : '4px',
+              transition: animate ? `width ${duration}ms ease-out` : 'none'
+            }"
+          >
+            <div v-if="showGradient" class="progress-gradient"></div>
+          </div>
+        </div>
+
+        <!-- Value label inside bar -->
+        <div
+          v-if="showValueInside && progressWidth > 20"
+          class="progress-value-inside"
+          :style="{
+            fontSize: (height * 0.6) + 'px',
+            lineHeight: height + 'px'
+          }"
+        >
+          {{ displayValue }}
         </div>
       </div>
-      
-      <!-- Value label inside bar -->
-      <div 
-        v-if="showValueInside && progressWidth > 20" 
-        class="progress-value-inside"
-        :style="{ 
-          fontSize: (height * 0.6) + 'px',
-          lineHeight: height + 'px'
-        }"
-      >
-        {{ displayValue }}
+
+      <!-- Budget values for budget utilization -->
+      <div v-if="showBudgetValues" class="budget-values">
+        <span class="budget-used">{{ formatCurrency(budgetUsed) }}</span>
+        <span class="budget-separator">/</span>
+        <span class="budget-total">{{ formatCurrency(budgetTotal) }}</span>
       </div>
-    </div>
-    
-    <!-- Budget values for budget utilization -->
-    <div v-if="showBudgetValues" class="budget-values">
-      <span class="budget-used">{{ formatCurrency(budgetUsed) }}</span>
-      <span class="budget-separator">/</span>
-      <span class="budget-total">{{ formatCurrency(budgetTotal) }}</span>
-    </div>
+    </template>
   </div>
 </template>
 
@@ -87,17 +96,32 @@ const props = withDefaults(defineProps<Props>(), {
 
 const animatedProgress = ref(0);
 
+// Data validation
+const isValidData = computed(() => {
+  return typeof props.value === 'number' &&
+         !isNaN(props.value) &&
+         isFinite(props.value) &&
+         typeof props.max === 'number' &&
+         !isNaN(props.max) &&
+         isFinite(props.max) &&
+         props.max > 0;
+});
+
 const progressWidth = computed(() => {
+  if (!isValidData.value) return 0;
   const progress = props.animate ? animatedProgress.value : props.value;
-  return Math.min((progress / props.max) * 100, 100);
+  const safeProgress = Math.max(0, Math.min(progress, props.max));
+  return Math.min((safeProgress / props.max) * 100, 100);
 });
 
 const displayValue = computed(() => {
+  if (!isValidData.value) return '0%';
   const currentValue = props.animate ? animatedProgress.value : props.value;
+  const safeValue = Math.max(0, Math.min(currentValue, props.max));
   if (props.showPercentage) {
-    return Math.round((currentValue / props.max) * 100) + '%';
+    return Math.round((safeValue / props.max) * 100) + '%';
   }
-  return Math.round(currentValue).toString();
+  return Math.round(safeValue).toString();
 });
 
 const formatCurrency = (amount: number) => {
@@ -231,5 +255,21 @@ watch(() => props.value, () => {
 
 .budget-total {
   color: #6B7280;
+}
+
+.progress-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: #FEF2F2;
+  border: 1px solid #FECACA;
+  border-radius: 6px;
+  color: #DC2626;
+}
+
+.error-text {
+  font-size: 12px;
+  font-weight: 500;
 }
 </style>

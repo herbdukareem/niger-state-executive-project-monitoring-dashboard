@@ -17,7 +17,7 @@ class UserController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = User::with(['role:id,name,display_name,color,icon'])
+        $query = User::with(['role:id,name,display_name'])
             ->withCount(['projects', 'projectUpdates']);
 
         // Filter by role
@@ -45,8 +45,18 @@ class UserController extends Controller
         $users = $query->orderBy('created_at', 'desc')
             ->paginate($request->get('per_page', 15));
 
+        // Transform users to include role color and icon
+        $transformedUsers = $users->getCollection()->map(function ($user) {
+            $userData = $user->toArray();
+            if ($user->role) {
+                $userData['role']['color'] = null;
+                $userData['role']['icon'] = null;
+            }
+            return $userData;
+        });
+
         return response()->json([
-            'data' => $users->items(),
+            'data' => $transformedUsers,
             'meta' => [
                 'current_page' => $users->currentPage(),
                 'last_page' => $users->lastPage(),
@@ -76,11 +86,18 @@ class UserController extends Controller
         $validated['password'] = Hash::make($validated['password']);
 
         $user = User::create($validated);
-        $user->load('role:id,name,display_name,color,icon');
+        $user->load('role:id,name,display_name');
+
+        // Transform user to include role color and icon
+        $userData = $user->toArray();
+        if ($user->role) {
+            $userData['role']['color'] = $user->role->color;
+            $userData['role']['icon'] = $user->role->icon;
+        }
 
         return response()->json([
             'message' => 'User created successfully',
-            'data' => $user
+            'data' => $userData
         ], 201);
     }
 
@@ -90,12 +107,19 @@ class UserController extends Controller
     public function show(User $user): JsonResponse
     {
         $user->load([
-            'role:id,name,display_name,description,color,icon',
+            'role:id,name,display_name,description',
             'projects:id,name,status,progress_percentage',
             'projectUpdates:id,title,update_type,created_at'
         ]);
 
-        return response()->json($user);
+        // Transform user to include role color and icon
+        $userData = $user->toArray();
+        if ($user->role) {
+            $userData['role']['color'] = $user->role->color;
+            $userData['role']['icon'] = $user->role->icon;
+        }
+
+        return response()->json($userData);
     }
 
     /**
@@ -122,11 +146,18 @@ class UserController extends Controller
         }
 
         $user->update($validated);
-        $user->load('role:id,name,display_name,color,icon');
+        $user->load('role:id,name,display_name');
+
+        // Transform user to include role color and icon
+        $userData = $user->toArray();
+        if ($user->role) {
+            $userData['role']['color'] = $user->role->color;
+            $userData['role']['icon'] = $user->role->icon;
+        }
 
         return response()->json([
             'message' => 'User updated successfully',
-            'data' => $user
+            'data' => $userData
         ]);
     }
 
@@ -175,8 +206,16 @@ class UserController extends Controller
     {
         $roles = Role::where('is_active', true)
             ->orderBy('level', 'desc')
-            ->get(['id', 'name', 'display_name', 'description', 'color', 'icon']);
+            ->get(['id', 'name', 'display_name', 'description']);
 
-        return response()->json($roles);
+        // Transform roles to include color and icon
+        $transformedRoles = $roles->map(function ($role) {
+            $roleData = $role->toArray();
+            $roleData['color'] = $role->color;
+            $roleData['icon'] = $role->icon;
+            return $roleData;
+        });
+
+        return response()->json($transformedRoles);
     }
 }

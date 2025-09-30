@@ -1,6 +1,13 @@
 <template>
   <div class="trend-chart-container">
-    <div class="trend-chart" :style="{ height: height + 'px' }">
+    <!-- Error state -->
+    <div v-if="!isValidData" class="trend-error">
+      <v-icon color="error" size="small">mdi-alert-circle</v-icon>
+      <span class="error-text">Invalid chart data</span>
+    </div>
+
+    <!-- Normal state -->
+    <div v-else class="trend-chart" :style="{ height: height + 'px' }">
       <div 
         v-for="(item, index) in chartData" 
         :key="index"
@@ -32,7 +39,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch, nextTick } from 'vue';
 
 interface TrendItem {
   label: string;
@@ -57,15 +64,35 @@ const props = withDefaults(defineProps<Props>(), {
 
 const isAnimated = ref(false);
 
-const chartData = computed(() => props.data);
+// Data validation
+const isValidData = computed(() => {
+  return Array.isArray(props.data) &&
+         props.data.length > 0 &&
+         props.data.every(item =>
+           item &&
+           typeof item.value === 'number' &&
+           !isNaN(item.value) &&
+           isFinite(item.value) &&
+           typeof item.label === 'string' &&
+           item.label.length > 0
+         );
+});
+
+const chartData = computed(() => {
+  if (!isValidData.value) return [];
+  return props.data;
+});
 
 const maxValue = computed(() => {
-  return Math.max(...props.data.map(item => item.value));
+  if (!isValidData.value || props.data.length === 0) return 1;
+  const values = props.data.map(item => Math.max(0, item.value));
+  return Math.max(...values, 1); // Ensure minimum value of 1
 });
 
 const getBarHeight = (value: number) => {
-  if (maxValue.value === 0) return 0;
-  return Math.max((value / maxValue.value) * 80, 5); // Min 5% height for visibility
+  if (!isValidData.value || maxValue.value === 0) return 0;
+  const safeValue = Math.max(0, value);
+  return Math.max((safeValue / maxValue.value) * 80, 5); // Min 5% height for visibility
 };
 
 const getBarColor = (value: number) => {
@@ -81,11 +108,31 @@ const getBarColor = (value: number) => {
   }
 };
 
+// Debounced animation trigger for performance
+let animationTimeout: number | null = null;
+
+const triggerAnimation = () => {
+  if (animationTimeout) {
+    clearTimeout(animationTimeout);
+  }
+  animationTimeout = window.setTimeout(() => {
+    isAnimated.value = true;
+  }, 100);
+};
+
+// Watch for data changes and debounce animation
+watch(() => props.data, () => {
+  if (props.animate) {
+    isAnimated.value = false;
+    nextTick(() => {
+      triggerAnimation();
+    });
+  }
+}, { deep: true });
+
 onMounted(() => {
   if (props.animate) {
-    setTimeout(() => {
-      isAnimated.value = true;
-    }, 100);
+    triggerAnimation();
   }
 });
 </script>
@@ -158,6 +205,24 @@ onMounted(() => {
   font-size: 11px;
   color: #374151;
   font-weight: 600;
+}
+
+.trend-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px;
+  background-color: #FEF2F2;
+  border: 1px solid #FECACA;
+  border-radius: 8px;
+  color: #DC2626;
+  min-height: 100px;
+}
+
+.error-text {
+  font-size: 14px;
+  font-weight: 500;
 }
 
 @keyframes fadeInUp {

@@ -47,6 +47,76 @@
                     label="Description"
                     variant="outlined"
                     rows="3"
+                    required
+                    :rules="[v => !!v || 'Description is required']"
+                  />
+                </v-col>
+              </v-row>
+
+              <v-row>
+                <v-col cols="12" md="6">
+                  <v-select
+                    v-model="form.project_manager_id"
+                    label="Project Manager"
+                    variant="outlined"
+                    :items="projectManagerOptions"
+                    item-title="name"
+                    item-value="id"
+                    :loading="loadingProjectManagers"
+                    required
+                    :rules="[v => !!v || 'Project Manager is required']"
+                    prepend-inner-icon="mdi-account-supervisor"
+                    clearable
+                  />
+                </v-col>
+
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    v-model="form.implementing_organization"
+                    label="Implementing Organization"
+                    variant="outlined"
+                    required
+                    :rules="[v => !!v || 'Implementing Organization is required']"
+                    prepend-inner-icon="mdi-office-building"
+                  />
+                </v-col>
+              </v-row>
+
+              <v-row>
+                <v-col cols="12" md="6">
+                  <v-select
+                    v-model="form.sector"
+                    label="Sector"
+                    variant="outlined"
+                    :items="sectorOptions"
+                    :loading="loadingSectors"
+                    required
+                    :rules="[v => !!v || 'Sector is required']"
+                    prepend-inner-icon="mdi-domain"
+                  />
+                </v-col>
+
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    v-model="form.project_location"
+                    label="Project Location"
+                    variant="outlined"
+                    required
+                    :rules="[v => !!v || 'Project Location is required']"
+                    prepend-inner-icon="mdi-map-marker"
+                  />
+                </v-col>
+              </v-row>
+
+              <v-row>
+                <v-col cols="12">
+                  <v-textarea
+                    v-model="form.overall_goal"
+                    label="Overall Goal"
+                    variant="outlined"
+                    rows="2"
+                    required
+                    :rules="[v => !!v || 'Overall Goal is required']"
                   />
                 </v-col>
               </v-row>
@@ -99,6 +169,19 @@
                   />
                 </v-col>
               </v-row>
+              <v-row>
+                <v-col cols="12">
+                  <v-switch
+                    v-model="form.work_plan_presentation"
+                    label="Enable Work Plan Presentation"
+                    color="primary"
+                    hide-details
+                  />
+                  <div class="text-caption text-grey-darken-1 mt-1">
+                    Enable this to allow detailed work plan activities tracking through project updates
+                  </div>
+                </v-col>
+              </v-row>
 
               <!-- Location Section -->
               <v-divider class="my-6"></v-divider>
@@ -139,7 +222,7 @@
                         <strong>Location detected:</strong> {{ locationMatcher.formatLocation(locationMatch) }}
                       </p>
                       <p class="text-xs text-green-600 mt-1">
-                        Coordinates: {{ form.latitude?.toFixed(6) }}, {{ form.longitude?.toFixed(6) }}
+                        Coordinates: {{ form.latitude ? parseFloat(String(form.latitude)).toFixed(6) : 'N/A' }}, {{ form.longitude ? parseFloat(String(form.longitude)).toFixed(6) : 'N/A' }}
                       </p>
                     </div>
                   </div>
@@ -153,7 +236,8 @@
                     v-model="form.lga_id"
                     label="Local Government Area"
                     variant="outlined"
-                    :items="nigerStateLGAs"
+                    :items="lgaOptions"
+                    :loading="loadingLgas"
                     item-title="name"
                     item-value="id"
                     required
@@ -161,7 +245,7 @@
                     @update:model-value="onLGAChange"
                   >
                     <template #item="{ props, item }">
-                      <v-list-item v-bind="props" :subtitle="item.raw.headquarters" />
+                      <v-list-item v-bind="props" :subtitle="item.raw.code" />
                     </template>
                   </v-select>
                 </v-col>
@@ -172,7 +256,8 @@
                     v-model="form.ward_id"
                     label="Ward"
                     variant="outlined"
-                    :items="availableWards"
+                    :items="wardOptions"
+                    :loading="loadingWards"
                     item-title="name"
                     item-value="id"
                     :disabled="!selectedLGA"
@@ -239,7 +324,27 @@
 
             </v-form>
           </v-card-text>
-          <v-card-actions class="px-6 pb-6">
+        </v-card>
+
+        <!-- Work Plan Activities Info -->
+        <v-card v-if="form.work_plan_presentation" variant="tonal" color="info" class="mb-6">
+          <v-card-text>
+            <div class="d-flex align-center">
+              <v-icon class="mr-2">mdi-information</v-icon>
+              <div>
+                <div class="font-weight-medium">Work Plan Activities Enabled</div>
+                <div class="text-body-2">
+                  After creating this project, you can add and manage detailed work plan activities through project updates.
+                  Use the "Work Plan Activities" update type to track progress on specific tasks and milestones.
+                </div>
+              </div>
+            </div>
+          </v-card-text>
+        </v-card>
+
+        <!-- Form Actions -->
+        <v-card class="elevation-2">
+          <v-card-actions class="px-6 py-6">
             <v-spacer />
             <v-btn
               variant="outlined"
@@ -264,10 +369,11 @@
 
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
-import { ref, computed, onMounted } from 'vue';
+
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
-import { nigerStateLGAs, type LocalGovernmentArea, type Ward } from '@/data/nigerState';
+import type { LocalGovernmentArea } from '@/data/nigerState';
 import { geolocationService, type LocationResult } from '@/utils/geolocation';
 import { locationMatcher, type LocationMatch } from '@/utils/locationMatcher';
 
@@ -276,6 +382,16 @@ const submitting = ref(false);
 const gettingLocation = ref(false);
 const locationError = ref('');
 const formRef = ref();
+
+// API data loading states
+const loadingLgas = ref(false);
+const loadingWards = ref(false);
+const loadingSectors = ref(false);
+const loadingProjectManagers = ref(false);
+const lgaOptions = ref<any[]>([]);
+const wardOptions = ref<any[]>([]);
+const sectorOptions = ref<string[]>([]);
+const projectManagerOptions = ref<any[]>([]);
 
 // Status options for select
 const statusOptions = ref([
@@ -294,20 +410,28 @@ const form = ref({
   status: 'not_started',
   start_date: '',
   end_date: '',
+  // Required fields that were missing
+  project_manager_id: null as number | null,
+  implementing_organization: '',
+  project_location: '',
+  sector: '',
+  overall_goal: '',
   // Location fields
-  lga_id: '',
-  ward_id: '',
+  lga_id: null as number | null,
+  ward_id: null as number | null,
   latitude: null as number | null,
   longitude: null as number | null,
   address: '',
-  location_description: ''
+  location_description: '',
+  // Work plan presentation
+  work_plan_presentation: false
 });
+
+// Work plan activities
+
 
 // Location-related reactive data
 const selectedLGA = ref<LocalGovernmentArea | null>(null);
-const availableWards = computed(() => {
-  return selectedLGA.value ? selectedLGA.value.wards : [];
-});
 
 const locationMatch = ref<LocationMatch | null>(null);
 const showLocationSuggestions = ref(false);
@@ -341,11 +465,21 @@ const getCurrentLocation = async () => {
 
       if (match.lga) {
         selectedLGA.value = match.lga;
-        form.value.lga_id = match.lga.id;
+        // Find the LGA in our API data by code
+        const apiLga = lgaOptions.value.find((lga: any) => lga.code === match.lga!.code);
+        if (apiLga) {
+          form.value.lga_id = apiLga.id;
 
-        // If we have a ward match, select it
-        if (match.ward) {
-          form.value.ward_id = match.ward.id;
+          // Fetch wards for this LGA
+          await fetchWards(apiLga.id);
+
+          // If we have a ward match, select it
+          if (match.ward) {
+            const apiWard = wardOptions.value.find((ward: any) => ward.code === match.ward!.code);
+            if (apiWard) {
+              form.value.ward_id = apiWard.id;
+            }
+          }
         }
       }
 
@@ -371,19 +505,84 @@ const getCurrentLocation = async () => {
   }
 };
 
+// Fetch LGAs from API
+const fetchLGAs = async () => {
+  loadingLgas.value = true;
+  try {
+    const response = await axios.get('/api/lgas');
+    lgaOptions.value = response.data.data;
+  } catch (error) {
+    console.error('Error fetching LGAs:', error);
+  } finally {
+    loadingLgas.value = false;
+  }
+};
+
+// Fetch Sectors from API
+const fetchSectors = async () => {
+  loadingSectors.value = true;
+  try {
+    const response = await axios.get('/api/form-data/sectors');
+    sectorOptions.value = response.data.data;
+  } catch (error) {
+    console.error('Error fetching sectors:', error);
+  } finally {
+    loadingSectors.value = false;
+  }
+};
+
+// Fetch Project Managers from API
+const fetchProjectManagers = async () => {
+  loadingProjectManagers.value = true;
+  try {
+    const response = await axios.get('/api/form-data/project-managers');
+    projectManagerOptions.value = response.data.data;
+  } catch (error) {
+    console.error('Error fetching project managers:', error);
+  } finally {
+    loadingProjectManagers.value = false;
+  }
+};
+
+// Fetch Wards for selected LGA
+const fetchWards = async (lgaId: number) => {
+  loadingWards.value = true;
+  try {
+    const response = await axios.get(`/api/lgas/${lgaId}/wards`);
+    wardOptions.value = response.data.data;
+  } catch (error) {
+    console.error('Error fetching wards:', error);
+    wardOptions.value = [];
+  } finally {
+    loadingWards.value = false;
+  }
+};
+
 const onLGAChange = () => {
-  const lga = nigerStateLGAs.find(l => l.id === form.value.lga_id);
+  const lga = lgaOptions.value.find((l: any) => l.id === form.value.lga_id);
   selectedLGA.value = lga || null;
-  form.value.ward_id = ''; // Reset ward selection when LGA changes
+  form.value.ward_id = null; // Reset ward selection when LGA changes
+  wardOptions.value = []; // Clear ward options
+
+  if (form.value.lga_id) {
+    fetchWards(form.value.lga_id);
+  }
 };
 
 const submitForm = async () => {
   submitting.value = true;
   try {
-    const response = await axios.post('/api/projects', form.value);
-    console.log('Project created successfully:', response.data);
+    // Create project first
+    const projectData = { ...form.value };
+
+    const response = await axios.post('/api/projects', projectData);
+    const project = response.data.data;
+
+    // Work plan activities will be managed through project updates
+
+    console.log('Project created successfully:', project);
     navigateTo('projects.index');
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating project:', error);
     if (error.response?.data?.errors) {
       // Handle validation errors
@@ -407,5 +606,10 @@ onMounted(() => {
   const day = String(now.getDate()).padStart(2, '0');
   const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
   form.value.id_code = `PRJ-${year}${month}${day}-${random}`;
+
+  // Fetch form data from API
+  fetchLGAs();
+  fetchSectors();
+  fetchProjectManagers();
 });
 </script>

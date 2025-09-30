@@ -160,6 +160,8 @@
                     v-model="form.sector"
                     label="Sector"
                     variant="outlined"
+                    required
+                    :rules="[v => !!v || 'Sector is required']"
                     prepend-inner-icon="mdi-domain"
                   />
                 </v-col>
@@ -168,7 +170,24 @@
                     v-model="form.implementing_organization"
                     label="Implementing Organization"
                     variant="outlined"
+                    required
+                    :rules="[v => !!v || 'Implementing organization is required']"
                     prepend-inner-icon="mdi-office-building"
+                  />
+                </v-col>
+                <v-col cols="12" md="6">
+                  
+                  <v-select
+                    v-model="form.project_manager_id"
+                    label="Project Manager"
+                    variant="outlined"
+                    :items="users"
+                    item-title="name"
+                    item-value="id"
+                    prepend-inner-icon="mdi-account-supervisor"
+                    required
+                    :rules="[v => !!v || 'Project manager is required']"
+                    clearable
                   />
                 </v-col>
               </v-row>
@@ -248,6 +267,51 @@
               Location Information
             </v-card-title>
             <v-card-text>
+              <!-- Current Location Button -->
+              <div class="mb-6">
+                <v-btn
+                  @click="getCurrentLocation"
+                  :loading="gettingLocation"
+                  color="success"
+                  variant="flat"
+                  prepend-icon="mdi-crosshairs-gps"
+                  class="mb-4"
+                >
+                  {{ gettingLocation ? 'Getting Location...' : 'Use Current Location' }}
+                </v-btn>
+
+                <v-alert
+                  v-if="locationError"
+                  type="error"
+                  variant="tonal"
+                  class="mb-4"
+                  closable
+                  @click:close="locationError = ''"
+                >
+                  {{ locationError }}
+                </v-alert>
+
+                <v-alert
+                  v-if="locationMatch && showLocationSuggestions"
+                  type="success"
+                  variant="tonal"
+                  class="mb-4"
+                  closable
+                  @click:close="showLocationSuggestions = false"
+                >
+                  <div class="d-flex align-center">
+                    <v-icon class="mr-2">mdi-check-circle</v-icon>
+                    <div>
+                      <div class="font-weight-medium">Location detected:</div>
+                      <div class="text-body-2">{{ formatLocationMatch(locationMatch) }}</div>
+                      <div class="text-caption text-medium-emphasis">
+                        Coordinates: {{ form.latitude ? parseFloat(String(form.latitude)).toFixed(6) : 'N/A' }}, {{ form.longitude ? parseFloat(String(form.longitude)).toFixed(6) : 'N/A' }}
+                      </div>
+                    </div>
+                  </div>
+                </v-alert>
+              </div>
+
               <v-row>
                 <v-col cols="12" md="6">
                   <v-select
@@ -308,6 +372,16 @@
                   />
                 </v-col>
                 <v-col cols="12">
+                  <v-text-field
+                    v-model="form.project_location"
+                    label="Project Location"
+                    variant="outlined"
+                    required
+                    :rules="[v => !!v || 'Project location is required']"
+                    prepend-inner-icon="mdi-map-marker-outline"
+                  />
+                </v-col>
+                <v-col cols="12">
                   <v-textarea
                     v-model="form.location_description"
                     label="Location Description"
@@ -334,6 +408,8 @@
                     label="Overall Goal"
                     variant="outlined"
                     rows="3"
+                    required
+                    :rules="[v => !!v || 'Overall goal is required']"
                     prepend-inner-icon="mdi-target"
                   />
                 </v-col>
@@ -343,8 +419,39 @@
                     label="Description"
                     variant="outlined"
                     rows="4"
+                    required
+                    :rules="[v => !!v || 'Description is required']"
                     prepend-inner-icon="mdi-text-long"
                   />
+                </v-col>
+                <v-col cols="12">
+                  <v-switch
+                    v-model="form.work_plan_presentation"
+                    label="Enable Work Plan Presentation"
+                    color="primary"
+                    hide-details
+                  />
+                  <div class="text-caption text-grey-darken-1 mt-1">
+                    <div v-if="form.work_plan_presentation" class="text-success">
+                      ✓ Work plan activities tracking is enabled. You can create "Work Plan Activities" updates to manage detailed project tasks and milestones.
+                    </div>
+                    <div v-else class="text-warning">
+                      Work plan activities tracking is disabled. Enable this to track detailed project activities through updates.
+                    </div>
+                  </div>
+
+                  <!-- Warning when disabling -->
+                  <v-alert
+                    v-if="!form.work_plan_presentation && project?.work_plan_presentation"
+                    type="warning"
+                    variant="tonal"
+                    density="compact"
+                    class="mt-3"
+                  >
+                    <v-icon start>mdi-alert</v-icon>
+                    Disabling work plan presentation will hide existing work plan activities from the updates interface.
+                    Existing activities data will be preserved but not accessible through updates.
+                  </v-alert>
                 </v-col>
               </v-row>
             </v-card-text>
@@ -375,13 +482,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive } from 'vue';
+import { ref, onMounted, reactive, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import AppSidebarLayout from '@/layouts/app/AppSidebarLayout.vue';
 import axios from 'axios';
+import { geolocationService, type LocationResult } from '@/utils/geolocation';
+import { locationMatcher, type LocationMatch } from '@/utils/locationMatcher';
+import { nigerStateLGAs, type LocalGovernmentArea } from '@/data/nigerState';
 
 const route = useRoute();
 const router = useRouter();
+
+// Geolocation state
+const gettingLocation = ref(false);
+const locationError = ref('');
+const locationMatch = ref<LocationMatch | null>(null);
+const showLocationSuggestions = ref(false);
 
 interface Project {
   id: number;
@@ -395,6 +511,8 @@ interface Project {
   end_date: string;
   sector: string;
   implementing_organization: string;
+  project_location: string;
+  project_manager_id?: number;
   lga_id?: number;
   ward_id?: number;
   latitude?: number;
@@ -403,6 +521,7 @@ interface Project {
   location_description?: string;
   overall_goal?: string;
   description?: string;
+  work_plan_presentation?: boolean;
 }
 
 interface LGA {
@@ -418,9 +537,17 @@ interface Ward {
   lga_id: number;
 }
 
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+}
+
 const project = ref<Project | null>(null);
 const lgas = ref<LGA[]>([]);
 const wards = ref<Ward[]>([]);
+const users = ref<User[]>([]);
 const loading = ref(true);
 const submitting = ref(false);
 
@@ -443,6 +570,8 @@ const form = reactive({
   end_date: '',
   sector: '',
   implementing_organization: '',
+  project_location: '',
+  project_manager_id: null as number | null,
   lga_id: null as number | null,
   ward_id: null as number | null,
   latitude: null as number | null,
@@ -451,6 +580,7 @@ const form = reactive({
   location_description: '',
   overall_goal: '',
   description: '',
+  work_plan_presentation: false,
 });
 
 const navigateTo = (routeName: string, params?: any) => {
@@ -486,6 +616,8 @@ const fetchProject = async () => {
       end_date: project.value.end_date,
       sector: project.value.sector || '',
       implementing_organization: project.value.implementing_organization || '',
+      project_location: project.value.project_location || '',
+      project_manager_id: project.value.project_manager_id,
       lga_id: project.value.lga_id,
       ward_id: project.value.ward_id,
       latitude: project.value.latitude,
@@ -494,6 +626,7 @@ const fetchProject = async () => {
       location_description: project.value.location_description || '',
       overall_goal: project.value.overall_goal || '',
       description: project.value.description || '',
+      work_plan_presentation: project.value.work_plan_presentation || false,
     });
 
     // Load wards if LGA is selected
@@ -519,11 +652,23 @@ const fetchLGAs = async () => {
 
 const fetchWards = async (lgaId: number) => {
   try {
+    console.log('Fetching wards for LGA:', lgaId);
     const response = await axios.get(`/api/lgas/${lgaId}/wards`);
+    console.log('Wards response:', response.data);
     wards.value = response.data.data || [];
+    console.log('Wards loaded:', wards.value);
   } catch (error) {
     console.error('Error fetching wards:', error);
     wards.value = [];
+  }
+};
+
+const fetchUsers = async () => {
+  try {
+    const response = await axios.get('/api/users');
+    users.value = response.data.data || [];
+  } catch (error) {
+    console.error('Error fetching users:', error);
   }
 };
 
@@ -531,13 +676,86 @@ const onLgaChange = () => {
   form.ward_id = null;
   wards.value = [];
   if (form.lga_id) {
+    console.log('LGA changed to:', form.lga_id);
     fetchWards(form.lga_id);
   }
+};
+
+// Geolocation methods
+const getCurrentLocation = async () => {
+  gettingLocation.value = true;
+  locationError.value = '';
+
+  try {
+    const result: LocationResult = await geolocationService.getCurrentPosition({
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 300000
+    });
+
+    if (result.success && result.position) {
+      const { latitude, longitude } = result.position.coords;
+
+      // Update form with coordinates
+      form.latitude = latitude;
+      form.longitude = longitude;
+
+      // Find matching LGA and ward
+      const match = await locationMatcher.getLGAFromCoordinates(latitude, longitude);
+      locationMatch.value = match;
+
+      if (match.lga) {
+        // Find the LGA in our loaded LGAs list
+        const foundLGA = lgas.value.find(lga => lga.name === match.lga?.name);
+        if (foundLGA) {
+          form.lga_id = foundLGA.id;
+          await loadWards(foundLGA.id);
+
+          if (match.ward) {
+            // Find the ward in the loaded wards
+            const foundWard = wards.value.find(ward => ward.name === match.ward?.name);
+            if (foundWard) {
+              form.ward_id = foundWard.id;
+            }
+          }
+        }
+      }
+
+      // Try to get address using reverse geocoding
+      try {
+        const geocodeResult = await geolocationService.reverseGeocode(latitude, longitude);
+        if (geocodeResult.address) {
+          form.address = geocodeResult.address;
+        }
+      } catch (geocodeError) {
+        console.warn('Reverse geocoding failed:', geocodeError);
+      }
+
+      showLocationSuggestions.value = true;
+    } else {
+      locationError.value = result.error?.message || 'Failed to get location';
+    }
+  } catch (error) {
+    locationError.value = 'Failed to get current location';
+    console.error('Geolocation error:', error);
+  } finally {
+    gettingLocation.value = false;
+  }
+};
+
+const formatLocationMatch = (match: LocationMatch): string => {
+  if (match.lga && match.ward) {
+    return `${match.ward.name} Ward, ${match.lga.name} LGA`;
+  } else if (match.lga) {
+    return `${match.lga.name} LGA`;
+  }
+  return 'Location detected';
 };
 
 const updateProject = async () => {
   submitting.value = true;
   try {
+
     const response = await axios.put(`/api/projects/${project.value?.id}`, form);
     console.log('Project updated successfully:', response.data);
     navigateTo('projects.show', { id: project.value?.id });
@@ -558,7 +776,8 @@ const updateProject = async () => {
 onMounted(async () => {
   await Promise.all([
     fetchProject(),
-    fetchLGAs()
+    fetchLGAs(),
+    fetchUsers()
   ]);
 });
 </script>

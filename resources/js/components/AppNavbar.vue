@@ -20,6 +20,32 @@
 
         <!-- Right side -->
         <div class="flex items-center space-x-4">
+          <!-- User Menu -->
+          <div v-if="authStore.isAuthenticated" class="flex items-center space-x-4">
+            <!-- User Info -->
+            <div class="hidden md:block text-sm text-gray-700">
+              Welcome, {{ authStore.user?.name }}
+            </div>
+
+            <!-- Logout Button -->
+            <button
+              @click="handleLogout"
+              class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md text-sm font-medium transition-colors"
+            >
+              Logout
+            </button>
+          </div>
+
+          <!-- Login Button (if not authenticated) -->
+          <div v-else>
+            <router-link
+              to="/login"
+              class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-md text-sm font-medium transition-colors"
+            >
+              Login
+            </router-link>
+          </div>
+
           <!-- Search -->
           <div class="hidden md:block">
             <div class="relative">
@@ -141,6 +167,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
+import { useAuthStore } from '@/stores/auth';
 import {
   Menu,
   Search,
@@ -156,6 +183,7 @@ import {
 
 const router = useRouter();
 const route = useRoute();
+const authStore = useAuthStore();
 
 // Props
 interface Props {
@@ -241,9 +269,8 @@ const performSearch = () => {
   }
 };
 
-const logout = () => {
-  // Handle logout logic
-  console.log('Logging out...');
+const handleLogout = async () => {
+  await authStore.logout();
   closeAllDropdowns();
 };
 

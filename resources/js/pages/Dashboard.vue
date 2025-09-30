@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue';
 import AppSidebarLayout from '@/layouts/app/AppSidebarLayout.vue';
 import ProjectMap from '@/components/ProjectMap.vue';
 import CircularProgress from '@/components/charts/CircularProgress.vue';
@@ -30,6 +30,9 @@ interface Project {
   cumulative_expenditure: number;
   start_date: string;
   end_date: string;
+  work_plan_presentation: boolean;
+  created_at?: string;
+  updated_at?: string;
   latitude?: number;
   longitude?: number;
   lga_id?: number;
@@ -93,8 +96,65 @@ const dashboardStats = ref<DashboardStats | null>(null);
 const lgas = ref<any[]>([]);
 const loading = ref(true);
 
-const navigateTo = (routeName: string) => {
-  router.push({ name: routeName });
+// Real-time data refresh
+const autoRefresh = ref(true);
+const refreshInterval = ref(30000); // 30 seconds
+const lastRefresh = ref<Date | null>(null);
+let refreshTimer: number | null = null;
+
+// Performance optimization: lazy loading for charts
+const chartsVisible = ref({
+  overview: false,
+  budget: false,
+  performance: false,
+  trends: false,
+  kpi: false,
+  map: false
+});
+
+// Intersection Observer for lazy loading charts
+const observeChartVisibility = () => {
+  if (typeof window === 'undefined' || !window.IntersectionObserver) return;
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        const chartType = entry.target.getAttribute('data-chart-type');
+        if (chartType && chartType in chartsVisible.value) {
+          (chartsVisible.value as any)[chartType] = true;
+          observer.unobserve(entry.target);
+        }
+      }
+    });
+  }, {
+    rootMargin: '50px',
+    threshold: 0.1
+  });
+
+  return observer;
+};
+
+// Memoization cache for expensive computations
+const chartDataCache = ref({
+  projectProgress: null as any,
+  budgetUtilization: null as any,
+  monthlyCompletion: null as any,
+  departmentPerformance: null as any,
+  lastProjectsHash: '',
+  lastStatsHash: ''
+});
+
+// Helper function to create a simple hash for change detection
+const createDataHash = (data: any): string => {
+  return JSON.stringify(data).slice(0, 100); // Simple hash for change detection
+};
+
+const navigateTo = (routeName: string, params?: any) => {
+  if (params) {
+    router.push({ name: routeName, params });
+  } else {
+    router.push({ name: routeName });
+  }
 };
 
 const formatCurrency = (amount: number) => {
@@ -143,12 +203,17 @@ const statsCards = computed(() => {
   ];
 });
 
-// Chart data computed properties
+// Chart data computed properties with memoization
 const projectProgressData = computed(() => {
   if (!dashboardStats.value || !projects.value.length) return [];
 
+  const currentHash = createDataHash(projects.value);
+  if (chartDataCache.value.projectProgress && chartDataCache.value.lastProjectsHash === currentHash) {
+    return chartDataCache.value.projectProgress;
+  }
+
   // Group projects by category and calculate average progress
-  const categories = {
+  const categories: Record<string, { projects: Project[], color: string }> = {
     'Infrastructure': { projects: [], color: '#3B82F6' },
     'Agriculture': { projects: [], color: '#10B981' },
     'Education': { projects: [], color: '#8B5CF6' },
@@ -173,20 +238,26 @@ const projectProgressData = computed(() => {
     }
   });
 
-  return Object.entries(categories)
+  const result = Object.entries(categories)
     .filter(([_, data]) => data.projects.length > 0)
     .map(([title, data]) => ({
       title,
       value: data.projects.reduce((sum, p) => sum + p.progress_percentage, 0) / data.projects.length,
       color: data.color
     }));
+
+  // Cache the result
+  chartDataCache.value.projectProgress = result;
+  chartDataCache.value.lastProjectsHash = currentHash;
+
+  return result;
 });
 
 const budgetUtilizationData = computed(() => {
   if (!dashboardStats.value || !projects.value.length) return [];
 
   // Group projects by category and calculate budget utilization
-  const categories = {
+  const categories: Record<string, { total: number, used: number, color: string }> = {
     'Infrastructure': { total: 0, used: 0, color: '#3B82F6' },
     'Agriculture': { total: 0, used: 0, color: '#10B981' },
     'Education': { total: 0, used: 0, color: '#8B5CF6' },
@@ -231,7 +302,7 @@ const monthlyCompletionData = computed(() => {
 
   // Get current year and last 6 months
   const now = new Date();
-  const months = [];
+  const months: Array<{ label: string; value: number; month: number; year: number }> = [];
   for (let i = 5; i >= 0; i--) {
     const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
     months.push({
@@ -242,13 +313,13 @@ const monthlyCompletionData = computed(() => {
     });
   }
 
-  // Count completed projects by month
+  // Count completed projects by month (using end_date for completed projects)
   projects.value.forEach(project => {
-    if (project.status === 'completed' && project.updated_at) {
-      const updatedDate = new Date(project.updated_at);
+    if (project.status === 'completed' && project.end_date) {
+      const endDate = new Date(project.end_date);
       const monthData = months.find(m =>
-        m.month === updatedDate.getMonth() &&
-        m.year === updatedDate.getFullYear()
+        m.month === endDate.getMonth() &&
+        m.year === endDate.getFullYear()
       );
       if (monthData) {
         monthData.value++;
@@ -262,7 +333,7 @@ const monthlyCompletionData = computed(() => {
 const departmentPerformanceData = computed(() => {
   if (!projects.value.length) return [];
 
-  const departments = {
+  const departments: Record<string, { projects: Project[], color: string }> = {
     'Infrastructure': { projects: [], color: '#3B82F6' },
     'Agriculture': { projects: [], color: '#10B981' },
     'Education': { projects: [], color: '#8B5CF6' },
@@ -302,73 +373,125 @@ const kpiData = computed(() => {
     {
       value: 2400000000,
       label: 'Total Investment',
-      format: 'currency',
-      variant: 'primary',
+      format: 'currency' as const,
+      variant: 'primary' as const,
       icon: 'mdi-currency-ngn'
     },
     {
       value: dashboardStats.value.overview.active_projects,
       label: 'Active Projects',
-      format: 'number',
-      variant: 'info',
+      format: 'number' as const,
+      variant: 'info' as const,
       icon: 'mdi-folder-multiple'
     },
     {
       value: dashboardStats.value.overview.average_progress,
       label: 'Avg. Completion',
-      format: 'percentage',
-      variant: 'success',
+      format: 'percentage' as const,
+      variant: 'success' as const,
       icon: 'mdi-chart-line'
     },
     {
       value: 15,
       label: 'Days Avg. Delay',
-      format: 'number',
-      variant: 'warning',
+      format: 'number' as const,
+      variant: 'warning' as const,
       icon: 'mdi-clock-alert'
     }
   ];
 });
 
-const fetchDashboardData = async () => {
+const fetchDashboardData = async (isRefresh = false) => {
   try {
+    if (!isRefresh) {
+      loading.value = true;
+    }
+
     const [projectsResponse, statsResponse, lgasResponse] = await Promise.all([
       axios.get('/api/projects'),
       axios.get('/api/dashboard/stats'),
       axios.get('/api/lgas')
     ]);
 
-    projects.value = projectsResponse.data.data || [];
-    dashboardStats.value = statsResponse.data;
-    lgas.value = lgasResponse.data.data || [];
+    // Validate and sanitize data
+    projects.value = Array.isArray(projectsResponse.data.data) ? projectsResponse.data.data : [];
+    dashboardStats.value = statsResponse.data || getDefaultStats();
+    lgas.value = Array.isArray(lgasResponse.data.data) ? lgasResponse.data.data : [];
+
+    // Additional validation for dashboard stats
+    if (dashboardStats.value && !dashboardStats.value.overview) {
+      dashboardStats.value.overview = getDefaultStats().overview;
+    }
+
+    // Update last refresh time
+    lastRefresh.value = new Date();
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
     // Fallback to sample data for development
-    projects.value = [];
-    lgas.value = [];
-    dashboardStats.value = {
-      overview: {
-        total_projects: 0,
-        active_projects: 0,
-        completed_projects: 0,
-        overdue_projects: 0,
-        total_budget: 0,
-        total_expenditure: 0,
-        budget_utilization: 0,
-        average_progress: 0,
-      },
-      lga_stats: [],
-      zone_stats: [],
-      recent_activity: [],
-      alerts: {
-        overdue_projects: 0,
-        low_progress_projects: 0,
-        high_budget_utilization: 0,
-      }
-    };
+    if (!isRefresh) {
+      projects.value = [];
+      lgas.value = [];
+      dashboardStats.value = getDefaultStats();
+    }
   } finally {
-    loading.value = false;
+    if (!isRefresh) {
+      loading.value = false;
+    }
   }
+};
+
+const getDefaultStats = (): DashboardStats => ({
+  overview: {
+    total_projects: 0,
+    active_projects: 0,
+    completed_projects: 0,
+    overdue_projects: 0,
+    total_budget: 0,
+    total_expenditure: 0,
+    budget_utilization: 0,
+    average_progress: 0,
+  },
+  lga_stats: [],
+  zone_stats: [],
+  recent_activity: [],
+  alerts: {
+    overdue_projects: 0,
+    low_progress_projects: 0,
+    high_budget_utilization: 0,
+  }
+});
+
+// Auto-refresh functions
+const startAutoRefresh = () => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer);
+  }
+
+  if (autoRefresh.value) {
+    refreshTimer = window.setInterval(() => {
+      fetchDashboardData(true);
+    }, refreshInterval.value);
+  }
+};
+
+const stopAutoRefresh = () => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer);
+    refreshTimer = null;
+  }
+};
+
+const toggleAutoRefresh = () => {
+  autoRefresh.value = !autoRefresh.value;
+  if (autoRefresh.value) {
+    startAutoRefresh();
+  } else {
+    stopAutoRefresh();
+  }
+};
+
+const manualRefresh = () => {
+  fetchDashboardData(true);
 };
 
 const getStatusColor = (status: string): string => {
@@ -406,6 +529,33 @@ const formatStatus = (status: string): string => {
 
 onMounted(() => {
   fetchDashboardData();
+
+  // Start auto-refresh
+  startAutoRefresh();
+
+  // Initialize lazy loading for charts
+  const observer = observeChartVisibility();
+  if (observer) {
+    // Initially show overview charts
+    chartsVisible.value.overview = true;
+    chartsVisible.value.budget = true;
+
+    // Observe other chart containers for lazy loading
+    nextTick(() => {
+      const chartContainers = document.querySelectorAll('[data-chart-type]');
+      chartContainers.forEach(container => observer.observe(container));
+    });
+  } else {
+    // Fallback: show all charts if IntersectionObserver is not supported
+    Object.keys(chartsVisible.value).forEach(key => {
+      (chartsVisible.value as any)[key] = true;
+    });
+  }
+});
+
+onUnmounted(() => {
+  // Cleanup auto-refresh timer
+  stopAutoRefresh();
 });
 </script>
 
@@ -420,7 +570,41 @@ onMounted(() => {
             <p class="text-subtitle-1 text-grey-darken-1">Project monitoring and oversight dashboard for Niger State</p>
           </div>
         </v-col>
-        <v-col cols="12" md="4" class="d-flex align-center justify-end">
+        <v-col cols="12" md="4" class="d-flex align-center justify-end gap-2">
+          <!-- Refresh Controls -->
+          <div class="d-flex align-center gap-2">
+            <v-tooltip text="Manual Refresh">
+              <template #activator="{ props }">
+                <v-btn
+                  v-bind="props"
+                  icon="mdi-refresh"
+                  variant="outlined"
+                  size="small"
+                  @click="manualRefresh"
+                />
+              </template>
+            </v-tooltip>
+
+            <v-tooltip :text="autoRefresh ? 'Disable Auto-refresh' : 'Enable Auto-refresh'">
+              <template #activator="{ props }">
+                <v-btn
+                  v-bind="props"
+                  :icon="autoRefresh ? 'mdi-pause' : 'mdi-play'"
+                  :color="autoRefresh ? 'success' : 'grey'"
+                  variant="outlined"
+                  size="small"
+                  @click="toggleAutoRefresh"
+                />
+              </template>
+            </v-tooltip>
+
+            <div v-if="lastRefresh" class="text-caption text-grey-darken-1">
+              Last: {{ lastRefresh.toLocaleTimeString() }}
+            </div>
+          </div>
+
+          <v-divider vertical />
+
           <v-btn
             color="primary"
             size="large"

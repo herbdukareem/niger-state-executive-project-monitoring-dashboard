@@ -7,6 +7,7 @@ use App\Models\Project;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
+
 class ProjectController extends Controller
 {
     /**
@@ -69,6 +70,8 @@ class ProjectController extends Controller
                 'location_description' => $project->location_description,
                 'sector' => $project->sector,
                 'implementing_organization' => $project->implementing_organization,
+                'project_manager_id' => $project->project_manager_id,
+                'work_plan_presentation' => $project->work_plan_presentation,
                 'project_manager' => $project->projectManager ? [
                     'id' => $project->projectManager->id,
                     'name' => $project->projectManager->name,
@@ -107,6 +110,7 @@ class ProjectController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'id_code' => 'required|string|max:50|unique:projects',
@@ -131,6 +135,7 @@ class ProjectController extends Controller
             'monitor_name' => 'nullable|string|max:255',
             'monitor_title' => 'nullable|string|max:255',
             'data_collection_methods' => 'nullable|array',
+            'work_plan_presentation' => 'nullable|boolean',
         ]);
 
         $project = Project::create($validated);
@@ -172,6 +177,8 @@ class ProjectController extends Controller
             'implementing_organization' => $project->implementing_organization,
             'overall_goal' => $project->overall_goal,
             'description' => $project->description,
+            'project_manager_id' => $project->project_manager_id,
+            'work_plan_presentation' => $project->work_plan_presentation,
             'project_manager' => $project->projectManager ? [
                 'id' => $project->projectManager->id,
                 'name' => $project->projectManager->name,
@@ -200,6 +207,7 @@ class ProjectController extends Controller
      */
     public function update(Request $request, Project $project): JsonResponse
     {
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'id_code' => 'required|string|max:50|unique:projects,id_code,' . $project->id,
@@ -227,6 +235,7 @@ class ProjectController extends Controller
             'monitor_name' => 'nullable|string|max:255',
             'monitor_title' => 'nullable|string|max:255',
             'data_collection_methods' => 'nullable|array',
+            'work_plan_presentation' => 'nullable|boolean',
         ]);
 
         $project->update($validated);

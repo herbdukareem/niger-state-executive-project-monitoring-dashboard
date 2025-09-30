@@ -149,7 +149,7 @@
                         <svg class="w-4 h-4 mr-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
                         </svg>
-                        {{ project.latitude.toFixed(6) }}, {{ project.longitude.toFixed(6) }}
+                        {{ parseFloat(project.latitude).toFixed(6) }}, {{ parseFloat(project.longitude).toFixed(6) }}
                       </div>
                     </dd>
                   </div>
@@ -177,7 +177,7 @@
                     <ProjectMap
                       :projects="[project]"
                       :height="256"
-                      :center="[project.latitude, project.longitude]"
+                      :center="[parseFloat(project.latitude), parseFloat(project.longitude)]"
                       :zoom="15"
                       :show-controls="true"
                     />
@@ -189,6 +189,33 @@
                     Click and drag to explore the map. The red marker shows the exact project location.
                   </p>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Work Plan Activities Section -->
+          <div v-if="project.work_plan_presentation && workPlanActivities.length > 0" class="bg-white shadow rounded-lg mb-6">
+            <div class="px-4 py-5 sm:p-6">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-900">Work Plan Activities</h3>
+                <div class="text-sm text-gray-500">
+                  {{ workPlanActivities.length }} {{ workPlanActivities.length === 1 ? 'activity' : 'activities' }}
+                </div>
+              </div>
+
+              <!-- Loading State -->
+              <div v-if="activitiesLoading" class="text-center py-8">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+                <p class="mt-2 text-sm text-gray-500">Loading activities...</p>
+              </div>
+
+              <!-- Activities Display -->
+              <div v-else>
+                <WorkPlanActivitiesDisplay
+                  :project="project"
+                  :activities="workPlanActivities"
+                  :readonly="true"
+                />
               </div>
             </div>
           </div>
@@ -388,7 +415,7 @@
                       <v-list-item>
                         <v-list-item-title>Status</v-list-item-title>
                         <v-list-item-subtitle>
-                          <v-chip size="small" :color="getStatusColor(selectedUpdate.status)">
+                          <v-chip size="small" :color="getUpdateStatusColor(selectedUpdate.status)">
                             {{ selectedUpdate.status }}
                           </v-chip>
                         </v-list-item-subtitle>
@@ -476,6 +503,7 @@
 
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
+import WorkPlanActivitiesDisplay from '@/components/WorkPlanActivitiesDisplay.vue';
 import { ref, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
@@ -496,6 +524,7 @@ interface Project {
   };
   updates_count: number;
   attachments_count: number;
+  work_plan_presentation?: boolean;
   latest_update?: {
     id: number;
     title: string;
@@ -506,8 +535,8 @@ interface Project {
   lga_name?: string;
   ward_id?: string;
   ward_name?: string;
-  latitude?: number;
-  longitude?: number;
+  latitude?: string;
+  longitude?: string;
   address?: string;
   location_description?: string;
 }
@@ -516,8 +545,10 @@ const router = useRouter();
 const route = useRoute();
 const project = ref<Project | null>(null);
 const projectUpdates = ref<ProjectUpdate[]>([]);
+const workPlanActivities = ref<any[]>([]);
 const loading = ref(true);
 const updatesLoading = ref(false);
+const activitiesLoading = ref(false);
 const selectedUpdate = ref<ProjectUpdate | null>(null);
 const updateDetailsDialog = ref(false);
 const updateAttachments = ref<any[]>([]);
@@ -587,6 +618,7 @@ const formatUpdateType = (type: string) => {
     quality: 'Quality',
     site_visit: 'Site Visit',
     milestone: 'Milestone',
+    work_plan_activities: 'Work Plan Activities',
   };
   return types[type] || type;
 };
@@ -619,6 +651,7 @@ const getUpdateTypeColor = (type: string) => {
     quality: 'orange',
     site_visit: 'purple',
     milestone: 'red',
+    work_plan_activities: 'indigo',
   };
   return colors[type] || 'grey';
 };
@@ -630,11 +663,12 @@ const getUpdateTypeIcon = (type: string) => {
     quality: 'mdi-star',
     site_visit: 'mdi-map-marker-check',
     milestone: 'mdi-flag-checkered',
+    work_plan_activities: 'mdi-clipboard-list',
   };
   return icons[type] || 'mdi-update';
 };
 
-const getStatusColor = (status: string) => {
+const getUpdateStatusColor = (status: string) => {
   const colors = {
     draft: 'grey',
     pending: 'orange',
@@ -677,10 +711,28 @@ const fetchProjectUpdates = async () => {
   }
 };
 
+const fetchWorkPlanActivities = async () => {
+  if (!project.value?.id || !project.value?.work_plan_presentation) return;
+
+  activitiesLoading.value = true;
+  try {
+    const response = await axios.get(`/api/projects/${project.value.id}/work-plan-activities`);
+    workPlanActivities.value = response.data.data || [];
+  } catch (error) {
+    console.error('Error fetching work plan activities:', error);
+    workPlanActivities.value = [];
+  } finally {
+    activitiesLoading.value = false;
+  }
+};
+
 onMounted(async () => {
   await fetchProject();
   if (project.value) {
-    await fetchProjectUpdates();
+    await Promise.all([
+      fetchProjectUpdates(),
+      fetchWorkPlanActivities()
+    ]);
   }
 });
 </script>

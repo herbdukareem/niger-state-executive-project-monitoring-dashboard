@@ -83,6 +83,12 @@ class RolePermissionSeeder extends Seeder
                 'description' => 'Project Manager/Contractor - Manage assigned projects and updates',
                 'level' => 50,
             ],
+            [
+                'name' => 'monitoring_and_evaluation_officers',
+                'display_name' => 'Monitoring and Evaluation Officers',
+                'description' => 'Monitoring and Evaluation Officers - Manage assigned projects and updates',
+                'level' => 40,
+            ],
         ];
 
         foreach ($roles as $roleData) {
@@ -128,6 +134,14 @@ class RolePermissionSeeder extends Seeder
                     'view_dashboard',
                 ]);
                 $role->permissions()->sync($pmPermissions->pluck('id'));
+                break;
+            case 'monitoring_and_evaluation_officers':
+                // Can only create updates of projects they are assigned to
+                $moPermissions = $allPermissions->whereIn('name', [
+                    'view_updates', 'create_updates', 'edit_updates', // Only their own updates
+                    'view_dashboard',
+                ]);
+                $role->permissions()->sync($moPermissions->pluck('id'));    
                 break;
         }
     }

@@ -299,92 +299,182 @@ const getBudgetUtilization = (project: Project) => {
                 </div>
 
                 <!-- Projects Grid -->
-                <div v-if="loading" class="text-center py-8">
-                    <div class="text-gray-500">Loading projects...</div>
+                <div v-if="loading" class="text-center py-12">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+                    <p class="mt-4 text-gray-500">Loading projects...</p>
                 </div>
-                <div v-else class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                <div v-else class="grid grid-cols-1 gap-8 lg:grid-cols-2">
                     <div
                         v-for="project in filteredProjects"
                         :key="project.id"
-                        class="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow duration-200"
+                        class="bg-white overflow-hidden shadow-lg rounded-xl hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-indigo-200"
                     >
-                        <div class="p-6">
-                            <div class="flex items-center justify-between mb-4">
-                                <div class="flex items-center">
-                                    <h3 class="text-lg font-medium text-gray-900 truncate">
-                                        <button @click="navigateTo('projects.show', { id: project.id })" class="hover:text-indigo-600 text-left">
+                        <!-- Project Header -->
+                        <div class="px-6 py-5 border-b border-gray-100">
+                            <div class="flex items-start justify-between">
+                                <div class="flex-1 min-w-0">
+                                    <h3 class="text-xl font-semibold text-gray-900 mb-1">
+                                        <button
+                                            @click="navigateTo('projects.show', { id: project.id })"
+                                            class="hover:text-indigo-600 text-left transition-colors duration-200 focus:outline-none focus:text-indigo-600"
+                                        >
                                             {{ project.name }}
                                         </button>
                                     </h3>
+                                    <p class="text-sm text-gray-500 font-medium">{{ project.id_code }}</p>
                                 </div>
-                                <span :class="statusColors[project.status]" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium">
+                                <span
+                                    :class="statusColors[project.status]"
+                                    class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ml-4 flex-shrink-0"
+                                >
                                     {{ statusLabels[project.status] }}
                                 </span>
                             </div>
+                        </div>
 
-                            <p class="text-sm text-gray-500 mb-2">{{ project.id_code }}</p>
-                            <p class="text-sm text-gray-600 mb-4">Manager: {{ project.project_manager.name }}</p>
+                        <!-- Project Content -->
+                        <div class="px-6 py-5">
+                            <!-- Manager and Key Info -->
+                            <div class="flex items-center justify-between mb-6">
+                                <div class="flex items-center">
+                                    <div class="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center mr-3">
+                                        <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-900">{{ project.project_manager.name }}</p>
+                                        <p class="text-xs text-gray-500">Project Manager</p>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-lg font-bold text-gray-900">{{ Math.round(project.progress_percentage) }}%</p>
+                                    <p class="text-xs text-gray-500">Complete</p>
+                                </div>
+                            </div>
 
                             <!-- Progress Bar -->
-                            <div class="mb-4">
-                                <div class="flex justify-between text-sm text-gray-600 mb-1">
-                                    <span>Progress</span>
-                                    <span>{{ Math.round(project.progress_percentage) }}%</span>
+                            <div class="mb-6">
+                                <div class="flex justify-between text-sm text-gray-600 mb-2">
+                                    <span class="font-medium">Project Progress</span>
+                                    <span class="text-gray-500">{{ Math.round(project.progress_percentage) }}%</span>
                                 </div>
-                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="w-full bg-gray-200 rounded-full h-3">
                                     <div
-                                        class="bg-blue-600 h-2 rounded-full"
+                                        class="bg-gradient-to-r from-indigo-500 to-indigo-600 h-3 rounded-full transition-all duration-500"
                                         :style="{ width: `${project.progress_percentage}%` }"
                                     ></div>
                                 </div>
                             </div>
 
-                            <!-- Budget Info -->
-                            <div class="mb-4">
-                                <div class="flex justify-between text-sm text-gray-600 mb-1">
-                                    <span>Budget Utilization</span>
-                                    <span>{{ Math.round(getBudgetUtilization(project)) }}%</span>
+                            <!-- Budget Information -->
+                            <div class="mb-6">
+                                <div class="flex justify-between text-sm text-gray-600 mb-2">
+                                    <span class="font-medium">Budget Utilization</span>
+                                    <span class="text-gray-500">{{ Math.round(getBudgetUtilization(project)) }}%</span>
                                 </div>
-                                <div class="text-sm text-gray-500">
-                                    {{ formatCurrency(project.cumulative_expenditure) }} / {{ formatCurrency(project.total_budget) }}
+                                <div class="w-full bg-gray-200 rounded-full h-2 mb-2">
+                                    <div
+                                        class="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full transition-all duration-500"
+                                        :style="{ width: `${getBudgetUtilization(project)}%` }"
+                                    ></div>
+                                </div>
+                                <div class="flex justify-between text-sm">
+                                    <span class="text-gray-600">Spent: {{ formatCurrency(project.cumulative_expenditure) }}</span>
+                                    <span class="text-gray-500">Total: {{ formatCurrency(project.total_budget) }}</span>
                                 </div>
                             </div>
 
-                            <!-- Dates -->
-                            <div class="text-sm text-gray-500 mb-4">
-                                <div>Start: {{ formatDate(project.start_date) }}</div>
-                                <div>End: {{ formatDate(project.end_date) }}</div>
+                            <!-- Project Timeline -->
+                            <div class="grid grid-cols-2 gap-4 mb-6">
+                                <div class="bg-gray-50 rounded-lg p-3">
+                                    <div class="flex items-center">
+                                        <svg class="w-4 h-4 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                        </svg>
+                                        <div>
+                                            <p class="text-xs text-gray-500">Start Date</p>
+                                            <p class="text-sm font-medium text-gray-900">{{ formatDate(project.start_date) }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="bg-gray-50 rounded-lg p-3">
+                                    <div class="flex items-center">
+                                        <svg class="w-4 h-4 text-red-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                        </svg>
+                                        <div>
+                                            <p class="text-xs text-gray-500">End Date</p>
+                                            <p class="text-sm font-medium text-gray-900">{{ formatDate(project.end_date) }}</p>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
-                            <!-- Stats -->
-                            <div class="flex justify-between text-sm text-gray-500">
-                                <span>{{ project.updates_count }} updates</span>
-                                <span>{{ project.attachments_count }} files</span>
+                            <!-- Project Stats -->
+                            <div class="flex items-center justify-between text-sm">
+                                <div class="flex items-center space-x-4">
+                                    <div class="flex items-center text-gray-500">
+                                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                        </svg>
+                                        <span>{{ project.updates_count }} updates</span>
+                                    </div>
+                                    <div class="flex items-center text-gray-500">
+                                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path>
+                                        </svg>
+                                        <span>{{ project.attachments_count }} files</span>
+                                    </div>
+                                </div>
+                                <button
+                                    @click="navigateTo('projects.show', { id: project.id })"
+                                    class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-indigo-600 bg-indigo-100 hover:bg-indigo-200 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                >
+                                    View Details
+                                    <svg class="ml-1 w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                    </svg>
+                                </button>
                             </div>
 
                             <!-- Latest Update -->
-                            <div v-if="project.latest_update" class="mt-3 pt-3 border-t border-gray-200">
-                                <p class="text-xs text-gray-500">Latest update:</p>
-                                <p class="text-sm text-gray-700 truncate">{{ project.latest_update.title }}</p>
-                                <p class="text-xs text-gray-500">{{ formatDate(project.latest_update.created_at) }}</p>
+                            <div v-if="project.latest_update" class="mt-4 pt-4 border-t border-gray-100">
+                                <div class="flex items-start">
+                                    <div class="w-2 h-2 bg-indigo-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-xs text-gray-500 mb-1">Latest Update</p>
+                                        <p class="text-sm text-gray-700 font-medium truncate">{{ project.latest_update.title }}</p>
+                                        <p class="text-xs text-gray-500">{{ formatDate(project.latest_update.created_at) }}</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Results Summary -->
-                <div v-if="!loading && filteredProjects.length === 0" class="text-center py-8">
-                    <div class="text-gray-500">No projects found matching your criteria.</div>
+                <div v-if="!loading && filteredProjects.length === 0" class="text-center py-16">
+                    <div class="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                        <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">No projects found</h3>
+                    <p class="text-gray-500 mb-4">No projects match your current search criteria.</p>
                     <button
                         @click="clearFilters"
-                        class="mt-2 text-indigo-600 hover:text-indigo-500 text-sm"
+                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                     >
                         Clear filters
                     </button>
                 </div>
 
-                <div v-if="!loading && filteredProjects.length > 0" class="mt-6 text-center text-sm text-gray-500">
-                    Showing {{ filteredProjects.length }} of {{ projects.length }} projects
+                <div v-if="!loading && filteredProjects.length > 0" class="mt-8 text-center">
+                    <p class="text-sm text-gray-500">
+                        Showing <span class="font-medium text-gray-900">{{ filteredProjects.length }}</span> of
+                        <span class="font-medium text-gray-900">{{ projects.length }}</span> projects
+                    </p>
                 </div>
             </div>
         </div>

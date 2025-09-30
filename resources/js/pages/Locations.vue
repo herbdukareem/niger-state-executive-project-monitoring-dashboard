@@ -177,7 +177,7 @@
                   </div>
                 </div>
                 <div class="mt-2 text-xs text-gray-400">
-                  {{ lga.coordinates.latitude.toFixed(4) }}, {{ lga.coordinates.longitude.toFixed(4) }}
+                  {{ parseFloat(lga.coordinates.latitude).toFixed(4) }}, {{ parseFloat(lga.coordinates.longitude).toFixed(4) }}
                 </div>
               </div>
             </div>
@@ -217,7 +217,7 @@
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ formatArea(lga.area_km2) }}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ formatPopulation(lga.population_estimate) }}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {{ lga.coordinates.latitude.toFixed(4) }}, {{ lga.coordinates.longitude.toFixed(4) }}
+                      {{ parseFloat(lga.coordinates.latitude).toFixed(4) }}, {{ parseFloat(lga.coordinates.longitude).toFixed(4) }}
                     </td>
                   </tr>
                 </tbody>

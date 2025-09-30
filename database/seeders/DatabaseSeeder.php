@@ -15,8 +15,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             RolePermissionSeeder::class,
-            LgaSeeder::class,
-            WardSeeder::class,
+            NigerStateLgaWardSeeder::class,
             ProjectSeeder::class,
             UserSeeder::class,
         ]);

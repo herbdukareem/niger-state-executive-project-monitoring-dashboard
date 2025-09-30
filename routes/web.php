@@ -2,7 +2,16 @@
 
 use Illuminate\Support\Facades\Route;
 
-// Serve the Vue.js SPA for all routes
+// Named routes for common paths (for Laravel redirects)
+Route::get('/dashboard', function () {
+    return view('app');
+})->name('dashboard');
+
+Route::get('/login', function () {
+    return view('app');
+})->name('login');
+
+// Serve the Vue.js SPA for all other routes
 Route::get('/{any}', function () {
     return view('app');
 })->where('any', '.*');

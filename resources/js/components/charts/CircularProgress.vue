@@ -1,20 +1,28 @@
 <template>
   <div class="circular-progress-container" :style="{ width: size + 'px', height: size + 'px' }">
-    <svg :width="size" :height="size" class="circular-progress-svg">
-      <!-- Background circle -->
-      <circle
-        :cx="center"
-        :cy="center"
-        :r="radius"
-        fill="none"
-        :stroke="backgroundColor"
-        :stroke-width="strokeWidth"
-        class="progress-bg"
-      />
-      <!-- Progress circle -->
-      <circle
-        :cx="center"
-        :cy="center"
+    <!-- Error state -->
+    <div v-if="!isValidData" class="progress-error">
+      <v-icon color="error" size="small">mdi-alert-circle</v-icon>
+      <span class="error-text">Invalid data</span>
+    </div>
+
+    <!-- Normal state -->
+    <template v-else>
+      <svg :width="size" :height="size" class="circular-progress-svg">
+        <!-- Background circle -->
+        <circle
+          :cx="center"
+          :cy="center"
+          :r="radius"
+          fill="none"
+          :stroke="backgroundColor"
+          :stroke-width="strokeWidth"
+          class="progress-bg"
+        />
+        <!-- Progress circle -->
+        <circle
+          :cx="center"
+          :cy="center"
         :r="radius"
         fill="none"
         :stroke="color"
@@ -24,18 +32,19 @@
         stroke-linecap="round"
         class="progress-circle"
         :class="{ 'animate-progress': animate }"
-      />
-    </svg>
-    
-    <!-- Center content -->
-    <div class="progress-content">
-      <div class="progress-value" :style="{ fontSize: valueSize + 'px' }">
-        {{ displayValue }}
+        />
+      </svg>
+
+      <!-- Center content -->
+      <div class="progress-content">
+        <div class="progress-value" :style="{ fontSize: valueSize + 'px' }">
+          {{ displayValue }}
+        </div>
+        <div v-if="label" class="progress-label" :style="{ fontSize: labelSize + 'px' }">
+          {{ label }}
+        </div>
       </div>
-      <div v-if="label" class="progress-label" :style="{ fontSize: labelSize + 'px' }">
-        {{ label }}
-      </div>
-    </div>
+    </template>
   </div>
 </template>
 
@@ -68,47 +77,75 @@ const props = withDefaults(defineProps<Props>(), {
 
 const animatedValue = ref(0);
 
+// Data validation
+const isValidData = computed(() => {
+  return typeof props.value === 'number' &&
+         !isNaN(props.value) &&
+         isFinite(props.value) &&
+         typeof props.max === 'number' &&
+         !isNaN(props.max) &&
+         isFinite(props.max) &&
+         props.max > 0 &&
+         props.value >= 0;
+});
+
 const center = computed(() => props.size / 2);
 const radius = computed(() => (props.size - props.strokeWidth) / 2);
 const circumference = computed(() => 2 * Math.PI * radius.value);
-const percentage = computed(() => (props.value / props.max) * 100);
+const percentage = computed(() => {
+  if (!isValidData.value) return 0;
+  return (Math.min(props.value, props.max) / props.max) * 100;
+});
 const valueSize = computed(() => Math.max(16, props.size * 0.15));
 const labelSize = computed(() => Math.max(12, props.size * 0.1));
 
 const strokeDashoffset = computed(() => {
+  if (!isValidData.value) return circumference.value;
   const progress = props.animate ? animatedValue.value : props.value;
-  return circumference.value - (progress / props.max) * circumference.value;
+  const safeProgress = Math.max(0, Math.min(progress, props.max));
+  return circumference.value - (safeProgress / props.max) * circumference.value;
 });
 
 const displayValue = computed(() => {
+  if (!isValidData.value) return '0%';
   const currentValue = props.animate ? animatedValue.value : props.value;
+  const safeValue = Math.max(0, Math.min(currentValue, props.max));
   if (props.showPercentage) {
-    return Math.round((currentValue / props.max) * 100) + '%';
+    return Math.round((safeValue / props.max) * 100) + '%';
   }
-  return Math.round(currentValue).toString();
+  return Math.round(safeValue).toString();
 });
 
 const animateProgress = () => {
-  if (!props.animate) return;
-  
+  if (!props.animate || !isValidData.value) return;
+
   const startTime = Date.now();
   const startValue = 0;
-  const endValue = props.value;
-  
+  const endValue = Math.max(0, Math.min(props.value, props.max));
+
+  let animationId: number;
+
   const animate = () => {
     const elapsed = Date.now() - startTime;
     const progress = Math.min(elapsed / props.duration, 1);
-    
+
     // Easing function (ease-out)
     const easeOut = 1 - Math.pow(1 - progress, 3);
     animatedValue.value = startValue + (endValue - startValue) * easeOut;
-    
+
     if (progress < 1) {
-      requestAnimationFrame(animate);
+      animationId = requestAnimationFrame(animate);
     }
   };
-  
-  requestAnimationFrame(animate);
+
+  animationId = requestAnimationFrame(animate);
+
+  // Cleanup function for performance
+  return () => {
+    if (animationId) {
+      cancelAnimationFrame(animationId);
+    }
+  };
 };
 
 onMounted(() => {
@@ -163,6 +200,26 @@ onMounted(() => {
   margin-top: 2px;
   line-height: 1;
   font-weight: 500;
+}
+
+.progress-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  background-color: #FEF2F2;
+  border: 1px solid #FECACA;
+  border-radius: 50%;
+  color: #DC2626;
+}
+
+.error-text {
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
 }
 
 @keyframes progress-animation {

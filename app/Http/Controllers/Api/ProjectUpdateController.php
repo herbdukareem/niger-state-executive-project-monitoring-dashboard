@@ -35,6 +35,16 @@ class ProjectUpdateController extends Controller
                         'id' => $update->creator->id,
                         'name' => $update->creator->name,
                     ] : null,
+                    'attachments' => $update->attachments->map(function ($attachment) {
+                        return [
+                            'id' => $attachment->id,
+                            'original_filename' => $attachment->original_filename,
+                            'file_size' => $attachment->file_size,
+                            'mime_type' => $attachment->mime_type,
+                            'description' => $attachment->description,
+                            'download_url' => $attachment->download_url,
+                        ];
+                    }),
                     'attachments_count' => $update->attachments->count(),
                 ];
             });
@@ -58,7 +68,7 @@ class ProjectUpdateController extends Controller
     public function store(Request $request, Project $project): JsonResponse
     {
         $validated = $request->validate([
-            'update_type' => 'required|in:progress,financial,quality,site_visit,milestone',
+            'update_type' => 'required|in:progress,financial,quality,site_visit,milestone,work_plan_activities',
             'title' => 'required|string|max:255',
             'description' => 'required|string',
             'progress_percentage' => 'nullable|numeric|min:0|max:100',
@@ -185,7 +195,9 @@ class ProjectUpdateController extends Controller
                     'file_size' => $attachment->file_size,
                     'mime_type' => $attachment->mime_type,
                     'description' => $attachment->description,
-                    'download_url' => route('attachments.download', $attachment->id),
+                    'download_url' => $attachment->url,
+                    'human_file_size' => $attachment->human_file_size,
+                    'is_image' => $attachment->isImage(),
                 ];
             }),
         ]);
@@ -197,7 +209,7 @@ class ProjectUpdateController extends Controller
     public function update(Request $request, Project $project, ProjectUpdate $update): JsonResponse
     {
         $validated = $request->validate([
-            'update_type' => 'required|in:progress,financial,quality,site_visit,milestone',
+            'update_type' => 'required|in:progress,financial,quality,site_visit,milestone,work_plan_activities',
             'title' => 'required|string|max:255',
             'description' => 'required|string',
             'progress_percentage' => 'nullable|numeric|min:0|max:100',
