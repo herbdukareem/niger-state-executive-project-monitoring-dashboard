@@ -1,10 +1,20 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
+import { useAuthStore } from '@/stores/auth';
 
 const router = useRouter();
+const authStore = useAuthStore();
 
 const navigateTo = (routeName: string) => {
-  router.push({ name: routeName });
+  if (authStore.isAuthenticated) {
+    router.push({ name: routeName });
+  } else {
+    router.push({ name: 'login' });
+  }
+};
+
+const goToLogin = () => {
+  router.push({ name: 'login' });
 };
 </script>
 
@@ -26,16 +36,28 @@ const navigateTo = (routeName: string) => {
           </div>
           <nav class="flex space-x-3">
             <button
+              v-if="authStore.isAuthenticated"
               @click="navigateTo('dashboard')"
               class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-2.5 rounded-lg text-sm font-medium shadow-lg hover:shadow-xl transition-all duration-200"
             >
               Dashboard
             </button>
             <button
+              v-if="authStore.isAuthenticated"
               @click="navigateTo('projects.index')"
               class="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-6 py-2.5 rounded-lg text-sm font-medium shadow-sm hover:shadow-md transition-all duration-200"
             >
               Projects
+            </button>
+            <button
+              v-if="!authStore.isAuthenticated"
+              @click="goToLogin"
+              class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-2.5 rounded-lg text-sm font-medium shadow-lg hover:shadow-xl transition-all duration-200"
+            >
+              <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
+              </svg>
+              Login
             </button>
           </nav>
         </div>
@@ -58,6 +80,7 @@ const navigateTo = (routeName: string) => {
           </p>
           <div class="mt-10 flex flex-col sm:flex-row justify-center gap-4">
             <button
+              v-if="authStore.isAuthenticated"
               @click="navigateTo('dashboard')"
               class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-4 rounded-xl text-lg font-semibold shadow-xl hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-200"
             >
@@ -67,6 +90,7 @@ const navigateTo = (routeName: string) => {
               View Dashboard
             </button>
             <button
+              v-if="authStore.isAuthenticated"
               @click="navigateTo('projects.index')"
               class="bg-white hover:bg-gray-50 text-gray-700 border-2 border-gray-300 hover:border-gray-400 px-8 py-4 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-200"
             >
@@ -74,6 +98,26 @@ const navigateTo = (routeName: string) => {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 9a2 2 0 00-2 2v0a2 2 0 002 2h14a2 2 0 002-2v0a2 2 0 00-2-2"></path>
               </svg>
               Browse Projects
+            </button>
+            <button
+              v-if="!authStore.isAuthenticated"
+              @click="goToLogin"
+              class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-4 rounded-xl text-lg font-semibold shadow-xl hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-200"
+            >
+              <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
+              </svg>
+              Login to Access Dashboard
+            </button>
+            <button
+              v-if="!authStore.isAuthenticated"
+              @click="goToLogin"
+              class="bg-white hover:bg-gray-50 text-gray-700 border-2 border-gray-300 hover:border-gray-400 px-8 py-4 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-200"
+            >
+              <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 9a2 2 0 00-2 2v0a2 2 0 002 2h14a2 2 0 002-2v0a2 2 0 00-2-2"></path>
+              </svg>
+              View Projects
             </button>
           </div>
         </div>
@@ -265,16 +309,28 @@ const navigateTo = (routeName: string) => {
         </p>
         <div class="flex flex-col sm:flex-row justify-center gap-4">
           <button
+            v-if="authStore.isAuthenticated"
             @click="navigateTo('dashboard')"
             class="bg-white text-blue-600 hover:bg-gray-100 px-8 py-4 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-200"
           >
             Access Dashboard
           </button>
           <button
+            v-if="authStore.isAuthenticated"
             @click="navigateTo('projects.index')"
             class="bg-transparent border-2 border-white text-white hover:bg-white hover:text-blue-600 px-8 py-4 rounded-xl text-lg font-semibold transition-all duration-200"
           >
             View All Projects
+          </button>
+          <button
+            v-if="!authStore.isAuthenticated"
+            @click="goToLogin"
+            class="bg-white text-blue-600 hover:bg-gray-100 px-8 py-4 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-200"
+          >
+            <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
+            </svg>
+            Login to Get Started
           </button>
         </div>
       </div>

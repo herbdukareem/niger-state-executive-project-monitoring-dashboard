@@ -11,6 +11,7 @@ import ProjectsCreate from '@/pages/Projects/Create.vue'
 import ProjectsEdit from '@/pages/Projects/Edit.vue'
 import ProjectsCreateUpdate from '@/pages/Projects/CreateUpdate.vue'
 import Locations from '@/pages/Locations.vue'
+import UsersIndex from '@/pages/Users/Index.vue'
 import Login from '@/pages/auth/Login.vue'
 
 const routes: RouteRecordRaw[] = [
@@ -25,7 +26,7 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     name: 'home',
     component: Welcome,
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: false }
   },
   // Protected routes
   {
@@ -72,6 +73,12 @@ const routes: RouteRecordRaw[] = [
     name: 'locations',
     component: Locations,
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/users',
+    name: 'users.index',
+    component: UsersIndex,
+    meta: { requiresAuth: true, requiresAdmin: true }
   }
 ]
 
@@ -91,12 +98,16 @@ router.beforeEach(async (to, from, next) => {
 
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
   const requiresGuest = to.matched.some(record => record.meta.requiresGuest)
+  const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin)
 
   if (requiresAuth && !authStore.isAuthenticated) {
     // Redirect to login if authentication is required
     next({ name: 'login' })
   } else if (requiresGuest && authStore.isAuthenticated) {
     // Redirect to dashboard if already authenticated and trying to access guest routes
+    next({ name: 'dashboard' })
+  } else if (requiresAdmin && !authStore.isAdmin) {
+    // Redirect to dashboard if admin access is required but user is not admin
     next({ name: 'dashboard' })
   } else {
     next()

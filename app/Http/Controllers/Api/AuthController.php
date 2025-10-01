@@ -42,13 +42,26 @@ class AuthController extends Controller
         // Create new token
         $token = $user->createToken('auth-token')->plainTextToken;
 
+        // Load role relationship
+        $user->load('role');
+
+        // Handle both old enum role field and new role relationship
+        $roleName = null;
+        if ($user->role_id && $user->role) {
+            // New role relationship
+            $roleName = $user->role->name;
+        } elseif (isset($user->getAttributes()['role'])) {
+            // Old enum role field (fallback)
+            $roleName = $user->getAttributes()['role'];
+        }
+
         return response()->json([
             'token' => $token,
             'user' => [
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
-                'role' => $user->role,
+                'role' => $roleName,
                 'is_active' => $user->is_active,
                 'email_verified_at' => $user->email_verified_at,
                 'created_at' => $user->created_at,
@@ -75,7 +88,29 @@ class AuthController extends Controller
      */
     public function user(Request $request): JsonResponse
     {
-        return response()->json($request->user());
+        $user = $request->user();
+        $user->load('role');
+
+        // Handle both old enum role field and new role relationship
+        $roleName = null;
+        if ($user->role_id && $user->role) {
+            // New role relationship
+            $roleName = $user->role->name;
+        } elseif (isset($user->getAttributes()['role'])) {
+            // Old enum role field (fallback)
+            $roleName = $user->getAttributes()['role'];
+        }
+
+        return response()->json([
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'role' => $roleName,
+            'is_active' => $user->is_active,
+            'email_verified_at' => $user->email_verified_at,
+            'created_at' => $user->created_at,
+            'updated_at' => $user->updated_at,
+        ]);
     }
 
     /**

@@ -193,6 +193,7 @@ import {
     MapPin,
     Settings,
     Users,
+    UserCog,
     FileText,
     Calendar,
     DollarSign,
@@ -296,6 +297,13 @@ const navigationItems = ref([
                 href: '/team',
                 routeName: 'team',
                 icon: Users,
+                badge: null
+            },
+            {
+                title: 'User Management',
+                href: '/users',
+                routeName: 'users.index',
+                icon: UserCog,
                 badge: null
             },
             {

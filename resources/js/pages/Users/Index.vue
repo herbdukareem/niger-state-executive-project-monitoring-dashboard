@@ -14,7 +14,7 @@
           </div>
           <div class="mt-4 flex md:ml-4 md:mt-0">
             <button
-              @click="showCreateDialog = true"
+              @click="openCreateModal"
               class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
             >
               <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -216,7 +216,176 @@
     </div>
 
     <!-- Create/Edit User Modal -->
-    <!-- This will be implemented in the next part -->
+    <div v-if="showCreateDialog" class="fixed inset-0 z-50 overflow-y-auto">
+      <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <!-- Background overlay -->
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="closeModal"></div>
+
+        <!-- Modal panel -->
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+          <form @submit.prevent="submitForm">
+            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+              <div class="sm:flex sm:items-start">
+                <div class="w-full">
+                  <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+                    {{ editingUser ? 'Edit User' : 'Create New User' }}
+                  </h3>
+
+                  <!-- Form Fields -->
+                  <div class="space-y-4">
+                    <!-- Name -->
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700">Full Name *</label>
+                      <input
+                        v-model="form.name"
+                        type="text"
+                        required
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        placeholder="Enter full name"
+                      />
+                    </div>
+
+                    <!-- Email -->
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700">Email Address *</label>
+                      <input
+                        v-model="form.email"
+                        type="email"
+                        required
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        placeholder="Enter email address"
+                      />
+                    </div>
+
+                    <!-- Password -->
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700">
+                        Password {{ editingUser ? '' : '*' }}
+                      </label>
+                      <input
+                        v-model="form.password"
+                        type="password"
+                        :required="!editingUser"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        placeholder="Enter password"
+                      />
+                      <p v-if="editingUser" class="mt-1 text-xs text-gray-500">Leave blank to keep current password</p>
+                    </div>
+
+                    <!-- Confirm Password -->
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700">
+                        Confirm Password {{ editingUser ? '' : '*' }}
+                      </label>
+                      <input
+                        v-model="form.password_confirmation"
+                        type="password"
+                        :required="!editingUser && form.password"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        placeholder="Confirm password"
+                      />
+                    </div>
+
+                    <!-- Role -->
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700">Role *</label>
+                      <select
+                        v-model="form.role_id"
+                        required
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      >
+                        <option value="">Select a role</option>
+                        <option v-for="role in roles" :key="role.id" :value="role.id">
+                          {{ role.display_name }}
+                        </option>
+                      </select>
+                    </div>
+
+                    <!-- Organization -->
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700">Organization</label>
+                      <input
+                        v-model="form.organization"
+                        type="text"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        placeholder="Enter organization"
+                      />
+                    </div>
+
+                    <!-- Position -->
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700">Position</label>
+                      <input
+                        v-model="form.position"
+                        type="text"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        placeholder="Enter position/title"
+                      />
+                    </div>
+
+                    <!-- Phone -->
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700">Phone Number</label>
+                      <input
+                        v-model="form.phone"
+                        type="tel"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        placeholder="Enter phone number"
+                      />
+                    </div>
+
+                    <!-- Address -->
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700">Address</label>
+                      <textarea
+                        v-model="form.address"
+                        rows="2"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        placeholder="Enter address"
+                      ></textarea>
+                    </div>
+
+                    <!-- Active Status -->
+                    <div class="flex items-center">
+                      <input
+                        v-model="form.is_active"
+                        type="checkbox"
+                        class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                      />
+                      <label class="ml-2 block text-sm text-gray-900">
+                        Active User
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Modal Actions -->
+            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+              <button
+                type="submit"
+                :disabled="submitting"
+                class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
+              >
+                <svg v-if="submitting" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                {{ submitting ? 'Saving...' : (editingUser ? 'Update User' : 'Create User') }}
+              </button>
+              <button
+                type="button"
+                @click="closeModal"
+                class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
   </AppLayout>
 </template>
 
@@ -224,6 +393,7 @@
 import { ref, reactive, onMounted } from 'vue';
 import { debounce } from 'lodash';
 import AppLayout from '@/layouts/AppLayout.vue';
+import axios from 'axios';
 
 interface User {
   id: number;
@@ -232,6 +402,7 @@ interface User {
   organization: string;
   position: string;
   phone: string;
+  address: string;
   is_active: boolean;
   role: {
     id: number;
@@ -257,6 +428,8 @@ const users = ref<User[]>([]);
 const roles = ref<Role[]>([]);
 const loading = ref(true);
 const showCreateDialog = ref(false);
+const editingUser = ref<User | null>(null);
+const submitting = ref(false);
 
 const filters = reactive({
   search: '',
@@ -269,6 +442,19 @@ const meta = reactive({
   last_page: 1,
   per_page: 15,
   total: 0,
+});
+
+const form = reactive({
+  name: '',
+  email: '',
+  password: '',
+  password_confirmation: '',
+  role_id: '',
+  organization: '',
+  position: '',
+  phone: '',
+  address: '',
+  is_active: true,
 });
 
 const fetchUsers = async (page = 1) => {
@@ -320,9 +506,85 @@ const changePage = (page: number) => {
   }
 };
 
+const resetForm = () => {
+  form.name = '';
+  form.email = '';
+  form.password = '';
+  form.password_confirmation = '';
+  form.role_id = '';
+  form.organization = '';
+  form.position = '';
+  form.phone = '';
+  form.address = '';
+  form.is_active = true;
+};
+
+const openCreateModal = () => {
+  editingUser.value = null;
+  resetForm();
+  showCreateDialog.value = true;
+};
+
 const editUser = (user: User) => {
-  // TODO: Implement edit user functionality
-  console.log('Edit user:', user);
+  editingUser.value = user;
+  form.name = user.name;
+  form.email = user.email;
+  form.password = '';
+  form.password_confirmation = '';
+  form.role_id = user.role?.id.toString() || '';
+  form.organization = user.organization || '';
+  form.position = user.position || '';
+  form.phone = user.phone || '';
+  form.address = user.address || '';
+  form.is_active = user.is_active;
+  showCreateDialog.value = true;
+};
+
+const closeModal = () => {
+  showCreateDialog.value = false;
+  editingUser.value = null;
+  resetForm();
+};
+
+const submitForm = async () => {
+  submitting.value = true;
+  try {
+    if (editingUser.value) {
+      // Update existing user
+      const response = await axios.put(`/api/users/${editingUser.value.id}`, form);
+      const updatedUser = response.data.data;
+
+      // Update user in the list
+      const index = users.value.findIndex(u => u.id === editingUser.value!.id);
+      if (index !== -1) {
+        users.value[index] = updatedUser;
+      }
+
+      alert('User updated successfully!');
+    } else {
+      // Create new user
+      const response = await axios.post('/api/users', form);
+      const newUser = response.data.data;
+
+      // Add new user to the list
+      users.value.unshift(newUser);
+      meta.total++;
+
+      alert('User created successfully!');
+    }
+
+    closeModal();
+  } catch (error: any) {
+    console.error('Error saving user:', error);
+    if (error.response?.data?.errors) {
+      const errors = Object.values(error.response.data.errors).flat();
+      alert('Validation errors:\n' + errors.join('\n'));
+    } else {
+      alert('Error saving user. Please try again.');
+    }
+  } finally {
+    submitting.value = false;
+  }
 };
 
 const toggleUserStatus = async (user: User) => {
