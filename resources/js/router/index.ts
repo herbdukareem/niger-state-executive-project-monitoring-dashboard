@@ -1,0 +1,128 @@
+import { createRouter, createWebHistory } from 'vue-router'
+import type { RouteRecordRaw } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+
+// Import components
+import Welcome from '@/pages/Welcome.vue'
+import Dashboard from '@/pages/Dashboard.vue'
+import ProjectsIndex from '@/pages/Projects/Index.vue'
+import ProjectsShow from '@/pages/Projects/Show.vue'
+import ProjectsCreate from '@/pages/Projects/Create.vue'
+import ProjectsEdit from '@/pages/Projects/Edit.vue'
+import ProjectsCreateUpdate from '@/pages/Projects/CreateUpdate.vue'
+import Locations from '@/pages/Locations.vue'
+import UsersIndex from '@/pages/Users/Index.vue'
+import RolesIndex from '@/pages/Roles/Index.vue'
+import Login from '@/pages/auth/Login.vue'
+
+const routes: RouteRecordRaw[] = [
+  // Public routes
+  {
+    path: '/login',
+    name: 'login',
+    component: Login,
+    meta: { requiresGuest: true }
+  },
+  {
+    path: '/',
+    name: 'home',
+    component: Welcome,
+    meta: { requiresAuth: false }
+  },
+  // Protected routes
+  {
+    path: '/dashboard',
+    name: 'dashboard',
+    component: Dashboard,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/projects',
+    name: 'projects.index',
+    component: ProjectsIndex,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/projects/create',
+    name: 'projects.create',
+    component: ProjectsCreate,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/projects/:id',
+    name: 'projects.show',
+    component: ProjectsShow,
+    props: true,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/projects/:id/edit',
+    name: 'projects.edit',
+    component: ProjectsEdit,
+    props: true,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/projects/:id/updates/create',
+    name: 'projects.updates.create',
+    component: ProjectsCreateUpdate,
+    props: true,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/locations',
+    name: 'locations',
+    component: Locations,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/users',
+    name: 'users.index',
+    component: UsersIndex,
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/roles',
+    name: 'roles.index',
+    component: RolesIndex,
+    meta: { requiresAuth: true, requiresAdmin: true }
+  }
+]
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes
+})
+
+// Navigation guards
+router.beforeEach(async (to, from, next) => {
+  const authStore = useAuthStore()
+
+  // Initialize auth if not already done
+  if (!authStore.user && authStore.token) {
+    await authStore.initializeAuth()
+  }
+
+  const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
+  const requiresGuest = to.matched.some(record => record.meta.requiresGuest)
+  const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin)
+  const requiresSuperAdmin = to.matched.some(record => record.meta.requiresSuperAdmin)
+
+  if (requiresAuth && !authStore.isAuthenticated) {
+    // Redirect to login if authentication is required
+    next({ name: 'login' })
+  } else if (requiresGuest && authStore.isAuthenticated) {
+    // Redirect to dashboard if already authenticated and trying to access guest routes
+    next({ name: 'dashboard' })
+  } else if (requiresAdmin && !authStore.isAdmin) {
+    // Redirect to dashboard if admin access is required but user is not admin
+    next({ name: 'dashboard' })
+  } else if (requiresSuperAdmin && !authStore.isSuperAdmin) {
+    // Redirect to dashboard if super admin access is required but user is not super admin
+    next({ name: 'dashboard' })
+  } else {
+    next()
+  }
+})
+
+export default router

@@ -1,0 +1,1118 @@
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue';
+import AppSidebarLayout from '@/layouts/app/AppSidebarLayout.vue';
+import ProjectMap from '@/components/ProjectMap.vue';
+import CircularProgress from '@/components/charts/CircularProgress.vue';
+import HorizontalProgressBar from '@/components/charts/HorizontalProgressBar.vue';
+import TrendChart from '@/components/charts/TrendChart.vue';
+import DepartmentPerformance from '@/components/charts/DepartmentPerformance.vue';
+import KPICard from '@/components/charts/KPICard.vue';
+import { useRouter } from 'vue-router';
+import { type BreadcrumbItemType } from '@/types';
+import axios from 'axios';
+
+const router = useRouter();
+
+const breadcrumbs: BreadcrumbItemType[] = [
+    {
+        title: 'Dashboard',
+        href: '/dashboard',
+    },
+];
+
+interface Project {
+  id: number;
+  name: string;
+  id_code: string;
+  status: 'not_started' | 'in_progress' | 'on_hold' | 'completed' | 'cancelled';
+  progress_percentage: number;
+  total_budget: number;
+  cumulative_expenditure: number;
+  start_date: string;
+  end_date: string;
+  work_plan_presentation: boolean;
+  created_at?: string;
+  updated_at?: string;
+  latitude?: number;
+  longitude?: number;
+  lga_id?: number;
+  lga_name?: string;
+  ward_id?: number;
+  ward_name?: string;
+  address?: string;
+  location_description?: string;
+  project_manager?: {
+    id: number;
+    name: string;
+  };
+  sector?: string;
+  implementing_organization?: string;
+}
+
+interface DashboardStats {
+  overview: {
+    total_projects: number;
+    active_projects: number;
+    completed_projects: number;
+    overdue_projects: number;
+    total_budget: number;
+    total_expenditure: number;
+    budget_utilization: number;
+    average_progress: number;
+  };
+  work_plan_metrics: {
+    total_activities: number;
+    completed_activities: number;
+    in_progress_activities: number;
+    delayed_activities: number;
+    overdue_activities: number;
+    completion_rate: number;
+    category_progress: Array<{
+      category: string;
+      progress_percentage: number;
+      total_activities: number;
+      completed_activities: number;
+      completion_rate: number;
+    }>;
+  };
+  monthly_trends: Array<{
+    month: string;
+    year: string;
+    completed_activities: number;
+    total_activities: number;
+    completion_rate: number;
+  }>;
+  department_performance: Array<{
+    sector: string;
+    total_projects: number;
+    avg_progress: number;
+    total_budget: number;
+    total_expenditure: number;
+    budget_utilization: number;
+    total_activities: number;
+    completed_activities: number;
+    activity_completion_rate: number;
+    avg_activity_progress: number;
+  }>;
+  lga_stats: Array<{
+    id: number;
+    name: string;
+    zone: string;
+    projects_count: number;
+    total_budget: number;
+    average_progress: number;
+  }>;
+  zone_stats: Array<{
+    name: string;
+    projects_count: number;
+    total_budget: number;
+    average_progress: number;
+  }>;
+  recent_activity: Array<{
+    id: number;
+    name: string;
+    id_code: string;
+    status: string;
+    progress_percentage: number;
+    lga_name?: string;
+    project_manager?: string;
+    updated_at: string;
+  }>;
+  alerts: {
+    overdue_projects: number;
+    low_progress_projects: number;
+    high_budget_utilization: number;
+  };
+}
+
+const projects = ref<Project[]>([]);
+const dashboardStats = ref<DashboardStats | null>(null);
+const lgas = ref<any[]>([]);
+const loading = ref(true);
+
+// Real-time data refresh
+const autoRefresh = ref(true);
+const refreshInterval = ref(30000); // 30 seconds
+const lastRefresh = ref<Date | null>(null);
+let refreshTimer: number | null = null;
+
+// Performance optimization: lazy loading for charts
+const chartsVisible = ref({
+  overview: false,
+  budget: false,
+  performance: false,
+  trends: false,
+  kpi: false,
+  map: false
+});
+
+// Intersection Observer for lazy loading charts
+const observeChartVisibility = () => {
+  if (typeof window === 'undefined' || !window.IntersectionObserver) return;
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        const chartType = entry.target.getAttribute('data-chart-type');
+        if (chartType && chartType in chartsVisible.value) {
+          (chartsVisible.value as any)[chartType] = true;
+          observer.unobserve(entry.target);
+        }
+      }
+    });
+  }, {
+    rootMargin: '50px',
+    threshold: 0.1
+  });
+
+  return observer;
+};
+
+// Memoization cache for expensive computations
+const chartDataCache = ref({
+  projectProgress: null as any,
+  budgetUtilization: null as any,
+  monthlyCompletion: null as any,
+  departmentPerformance: null as any,
+  lastProjectsHash: '',
+  lastStatsHash: ''
+});
+
+// Helper function to create a simple hash for change detection
+const createDataHash = (data: any): string => {
+  return JSON.stringify(data).slice(0, 100); // Simple hash for change detection
+};
+
+const navigateTo = (routeName: string, params?: any) => {
+  if (params) {
+    router.push({ name: routeName, params });
+  } else {
+    router.push({ name: routeName });
+  }
+};
+
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+};
+
+// Computed properties for stats cards
+const statsCards = computed(() => {
+  if (!dashboardStats.value) return [];
+
+  const stats = dashboardStats.value.overview;
+  return [
+    {
+      title: 'Total Projects',
+      value: stats.total_projects,
+      icon: 'mdi-folder-multiple',
+      color: 'primary',
+      subtitle: 'All registered projects'
+    },
+    {
+      title: 'Active Projects',
+      value: stats.active_projects,
+      icon: 'mdi-progress-clock',
+      color: 'info',
+      subtitle: 'Currently in progress'
+    },
+    {
+      title: 'Completed',
+      value: stats.completed_projects,
+      icon: 'mdi-check-circle',
+      color: 'success',
+      subtitle: 'Successfully completed'
+    },
+    {
+      title: 'Total Budget',
+      value: formatCurrency(stats.total_budget),
+      icon: 'mdi-currency-ngn',
+      color: 'warning',
+      subtitle: `${stats.budget_utilization}% utilized`
+    }
+  ];
+});
+
+// Chart data computed properties with memoization
+const projectProgressData = computed(() => {
+  if (!dashboardStats.value?.work_plan_metrics) return [];
+
+  const currentHash = createDataHash(dashboardStats.value.work_plan_metrics);
+  if (chartDataCache.value.projectProgress && chartDataCache.value.lastProjectsHash === currentHash) {
+    return chartDataCache.value.projectProgress;
+  }
+
+  // Use work plan category progress data
+  const categoryProgress = dashboardStats.value.work_plan_metrics.category_progress || [];
+
+  // Define colors for categories
+  const categoryColors: Record<string, string> = {
+    'Planning': '#3B82F6',
+    'Implementation': '#10B981',
+    'Monitoring': '#8B5CF6',
+    'Evaluation': '#EF4444',
+    'Procurement': '#06B6D4',
+    'Construction': '#F59E0B',
+    'Training': '#EC4899',
+    'Documentation': '#6B7280'
+  };
+
+  const result = categoryProgress
+    .filter(category =>
+      typeof category.progress_percentage === 'number' &&
+      !isNaN(category.progress_percentage) &&
+      isFinite(category.progress_percentage)
+    )
+    .map(category => ({
+      title: category.category,
+      value: Math.max(0, Math.min(100, category.progress_percentage)),
+      color: categoryColors[category.category] || '#6B7280',
+      subtitle: `${category.completed_activities}/${category.total_activities} activities`
+    }));
+
+  // Cache the result
+  chartDataCache.value.projectProgress = result;
+  chartDataCache.value.lastProjectsHash = currentHash;
+
+  return result;
+});
+
+const budgetUtilizationData = computed(() => {
+  if (!dashboardStats.value?.department_performance) return [];
+
+  // Use department performance data for budget utilization
+  const departmentData = dashboardStats.value.department_performance || [];
+
+  // Define colors for sectors
+  const sectorColors: Record<string, string> = {
+    'Infrastructure': '#3B82F6',
+    'Agriculture': '#10B981',
+    'Education': '#8B5CF6',
+    'Healthcare': '#EF4444',
+    'Water': '#06B6D4',
+    'Energy': '#F59E0B',
+    'Transportation': '#EC4899',
+    'Technology': '#6B7280'
+  };
+
+  const result = departmentData
+    .filter(dept =>
+      typeof dept.budget_utilization === 'number' &&
+      !isNaN(dept.budget_utilization) &&
+      isFinite(dept.budget_utilization) &&
+      dept.total_budget > 0
+    )
+    .map(dept => ({
+      title: dept.sector,
+      value: Math.max(0, Math.min(100, dept.budget_utilization)),
+      total: 100, // Budget utilization is already a percentage
+      budgetUsed: dept.total_expenditure,
+      budgetTotal: dept.total_budget,
+      color: sectorColors[dept.sector] || '#6B7280',
+      subtitle: `₦${(dept.total_expenditure / 1000000).toFixed(1)}M / ₦${(dept.total_budget / 1000000).toFixed(1)}M`
+    }))
+    .sort((a, b) => b.value - a.value); // Sort by utilization percentage
+
+  return result;
+});
+
+const monthlyCompletionData = computed(() => {
+  if (!dashboardStats.value?.monthly_trends) return [];
+
+  const currentHash = createDataHash(dashboardStats.value.monthly_trends);
+  if (chartDataCache.value.monthlyCompletion && chartDataCache.value.lastStatsHash === currentHash) {
+    return chartDataCache.value.monthlyCompletion;
+  }
+
+  // Use monthly trends data from API
+  const trends = dashboardStats.value.monthly_trends || [];
+
+  const result = trends
+    .filter(trend =>
+      typeof trend.completion_rate === 'number' &&
+      !isNaN(trend.completion_rate) &&
+      isFinite(trend.completion_rate)
+    )
+    .map(trend => ({
+      label: trend.month,
+      value: Math.max(0, Math.min(100, trend.completion_rate)),
+      subtitle: `${trend.completed_activities} activities completed`
+    }));
+
+  // Cache the result
+  chartDataCache.value.monthlyCompletion = result;
+  chartDataCache.value.lastStatsHash = currentHash;
+
+  return result;
+});
+
+const departmentPerformanceData = computed(() => {
+  if (!dashboardStats.value?.department_performance) return [];
+
+  const currentHash = createDataHash(dashboardStats.value.department_performance);
+  if (chartDataCache.value.departmentPerformance && chartDataCache.value.lastStatsHash === currentHash) {
+    return chartDataCache.value.departmentPerformance;
+  }
+
+  // Use department performance data from API
+  const departments = dashboardStats.value.department_performance || [];
+
+  // Define colors for sectors
+  const sectorColors: Record<string, string> = {
+    'Infrastructure': '#3B82F6',
+    'Agriculture': '#10B981',
+    'Education': '#8B5CF6',
+    'Healthcare': '#EF4444',
+    'Water': '#06B6D4',
+    'Energy': '#F59E0B',
+    'Transportation': '#EC4899',
+    'Technology': '#6B7280'
+  };
+
+  const result = departments
+    .filter(dept =>
+      typeof dept.avg_activity_progress === 'number' &&
+      !isNaN(dept.avg_activity_progress) &&
+      isFinite(dept.avg_activity_progress)
+    )
+    .map(dept => ({
+      name: dept.sector,
+      performance: Math.round(Math.max(0, Math.min(100, dept.avg_activity_progress))),
+      projectCount: dept.total_projects,
+      activityCount: dept.total_activities,
+      completionRate: dept.activity_completion_rate,
+      color: sectorColors[dept.sector] || '#6B7280'
+    }))
+    .sort((a, b) => b.performance - a.performance);
+
+  // Cache the result
+  chartDataCache.value.departmentPerformance = result;
+  chartDataCache.value.lastStatsHash = currentHash;
+
+  return result;
+});
+
+const kpiData = computed(() => {
+  if (!dashboardStats.value) return [];
+
+  return [
+    {
+      value: 2400000000,
+      label: 'Total Investment',
+      format: 'currency' as const,
+      variant: 'primary' as const,
+      icon: 'mdi-currency-ngn'
+    },
+    {
+      value: dashboardStats.value.overview.active_projects,
+      label: 'Active Projects',
+      format: 'number' as const,
+      variant: 'info' as const,
+      icon: 'mdi-folder-multiple'
+    },
+    {
+      value: dashboardStats.value.overview.average_progress,
+      label: 'Avg. Completion',
+      format: 'percentage' as const,
+      variant: 'success' as const,
+      icon: 'mdi-chart-line'
+    },
+    {
+      value: 15,
+      label: 'Days Avg. Delay',
+      format: 'number' as const,
+      variant: 'warning' as const,
+      icon: 'mdi-clock-alert'
+    }
+  ];
+});
+
+const fetchDashboardData = async (isRefresh = false) => {
+  try {
+    if (!isRefresh) {
+      loading.value = true;
+    }
+
+    const [projectsResponse, statsResponse, lgasResponse] = await Promise.all([
+      axios.get('/api/projects'),
+      axios.get('/api/dashboard/stats'),
+      axios.get('/api/lgas')
+    ]);
+
+    // Validate and sanitize data
+    projects.value = Array.isArray(projectsResponse.data.data) ? projectsResponse.data.data : [];
+    dashboardStats.value = statsResponse.data || getDefaultStats();
+    lgas.value = Array.isArray(lgasResponse.data.data) ? lgasResponse.data.data : [];
+
+    // Additional validation for dashboard stats
+    if (dashboardStats.value && !dashboardStats.value.overview) {
+      dashboardStats.value.overview = getDefaultStats().overview;
+    }
+
+    // Update last refresh time
+    lastRefresh.value = new Date();
+  } catch (error) {
+    console.error('Error fetching dashboard data:', error);
+    // Fallback to sample data for development
+    if (!isRefresh) {
+      projects.value = [];
+      lgas.value = [];
+      dashboardStats.value = getDefaultStats();
+    }
+  } finally {
+    if (!isRefresh) {
+      loading.value = false;
+    }
+  }
+};
+
+const getDefaultStats = (): DashboardStats => ({
+  overview: {
+    total_projects: 0,
+    active_projects: 0,
+    completed_projects: 0,
+    overdue_projects: 0,
+    total_budget: 0,
+    total_expenditure: 0,
+    budget_utilization: 0,
+    average_progress: 0,
+  },
+  lga_stats: [],
+  zone_stats: [],
+  recent_activity: [],
+  alerts: {
+    overdue_projects: 0,
+    low_progress_projects: 0,
+    high_budget_utilization: 0,
+  }
+});
+
+// Auto-refresh functions
+const startAutoRefresh = () => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer);
+  }
+
+  if (autoRefresh.value) {
+    refreshTimer = window.setInterval(() => {
+      fetchDashboardData(true);
+    }, refreshInterval.value);
+  }
+};
+
+const stopAutoRefresh = () => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer);
+    refreshTimer = null;
+  }
+};
+
+const toggleAutoRefresh = () => {
+  autoRefresh.value = !autoRefresh.value;
+  if (autoRefresh.value) {
+    startAutoRefresh();
+  } else {
+    stopAutoRefresh();
+  }
+};
+
+const manualRefresh = () => {
+  fetchDashboardData(true);
+};
+
+const getStatusColor = (status: string): string => {
+  const colors = {
+    not_started: 'grey',
+    in_progress: 'blue',
+    on_hold: 'orange',
+    completed: 'green',
+    cancelled: 'red'
+  };
+  return colors[status as keyof typeof colors] || 'grey';
+};
+
+const getStatusIcon = (status: string): string => {
+  const icons = {
+    not_started: 'mdi-clock-outline',
+    in_progress: 'mdi-play-circle',
+    on_hold: 'mdi-pause-circle',
+    completed: 'mdi-check-circle',
+    cancelled: 'mdi-close-circle'
+  };
+  return icons[status as keyof typeof icons] || 'mdi-clock-outline';
+};
+
+const formatStatus = (status: string): string => {
+  const labels = {
+    not_started: 'Not Started',
+    in_progress: 'In Progress',
+    on_hold: 'On Hold',
+    completed: 'Completed',
+    cancelled: 'Cancelled'
+  };
+  return labels[status as keyof typeof labels] || status;
+};
+
+onMounted(() => {
+  fetchDashboardData();
+
+  // Start auto-refresh
+  startAutoRefresh();
+
+  // Initialize lazy loading for charts
+  const observer = observeChartVisibility();
+  if (observer) {
+    // Initially show overview charts
+    chartsVisible.value.overview = true;
+    chartsVisible.value.budget = true;
+
+    // Observe other chart containers for lazy loading
+    nextTick(() => {
+      const chartContainers = document.querySelectorAll('[data-chart-type]');
+      chartContainers.forEach(container => observer.observe(container));
+    });
+  } else {
+    // Fallback: show all charts if IntersectionObserver is not supported
+    Object.keys(chartsVisible.value).forEach(key => {
+      (chartsVisible.value as any)[key] = true;
+    });
+  }
+});
+
+onUnmounted(() => {
+  // Cleanup auto-refresh timer
+  stopAutoRefresh();
+});
+</script>
+
+<template>
+  <AppSidebarLayout :breadcrumbs="breadcrumbs" title="Executive Dashboard">
+    <v-container fluid class="pa-4">
+      <!-- Header -->
+      <v-row class="mb-6">
+        <v-col cols="12" md="8">
+          <div>
+            <h1 class="text-h4 font-weight-bold text-primary mb-2">Executive Dashboard</h1>
+            <p class="text-subtitle-1 text-grey-darken-1">Project monitoring and oversight dashboard for Niger State</p>
+          </div>
+        </v-col>
+        <v-col cols="12" md="4" class="d-flex align-center justify-end gap-2">
+          <!-- Refresh Controls -->
+          <div class="d-flex align-center gap-2">
+            <v-tooltip text="Manual Refresh">
+              <template #activator="{ props }">
+                <v-btn
+                  v-bind="props"
+                  icon="mdi-refresh"
+                  variant="outlined"
+                  size="small"
+                  @click="manualRefresh"
+                />
+              </template>
+            </v-tooltip>
+
+            <v-tooltip :text="autoRefresh ? 'Disable Auto-refresh' : 'Enable Auto-refresh'">
+              <template #activator="{ props }">
+                <v-btn
+                  v-bind="props"
+                  :icon="autoRefresh ? 'mdi-pause' : 'mdi-play'"
+                  :color="autoRefresh ? 'success' : 'grey'"
+                  variant="outlined"
+                  size="small"
+                  @click="toggleAutoRefresh"
+                />
+              </template>
+            </v-tooltip>
+
+            <div v-if="lastRefresh" class="text-caption text-grey-darken-1">
+              Last: {{ lastRefresh.toLocaleTimeString() }}
+            </div>
+          </div>
+
+          <v-divider vertical />
+
+          <v-btn
+            color="primary"
+            size="large"
+            @click="navigateTo('projects.create')"
+            prepend-icon="mdi-plus"
+          >
+            New Project
+          </v-btn>
+        </v-col>
+      </v-row>
+
+      <!-- Loading State -->
+      <v-row v-if="loading" class="mb-6">
+        <v-col cols="12">
+          <v-card>
+            <v-card-text class="text-center pa-8">
+              <v-progress-circular indeterminate color="primary" size="64" />
+              <div class="mt-4 text-h6">Loading dashboard data...</div>
+            </v-card-text>
+          </v-card>
+        </v-col>
+      </v-row>
+
+      <!-- Dashboard Content -->
+      <div v-else>
+        <!-- Enhanced Stats Cards -->
+        <v-row class="mb-6">
+          <v-col
+            v-for="(card, index) in statsCards"
+            :key="card.title"
+            cols="12"
+            sm="6"
+            lg="3"
+          >
+            <v-card
+              :color="card.color"
+              variant="tonal"
+              class="h-100 animate__animated animate__fadeInUp stats-card-hover"
+              :class="`stagger-${index + 1}`"
+            >
+              <v-card-text>
+                <div class="d-flex align-center justify-space-between">
+                  <div>
+                    <div class="text-h4 font-weight-bold mb-1">
+                      {{ card.value }}
+                    </div>
+                    <div class="text-subtitle-1 font-weight-medium">
+                      {{ card.title }}
+                    </div>
+                    <div class="text-caption text-medium-emphasis">
+                      {{ card.subtitle }}
+                    </div>
+                  </div>
+                  <v-avatar :color="card.color" size="56" variant="flat">
+                    <v-icon :icon="card.icon" size="28" />
+                  </v-avatar>
+                </div>
+              </v-card-text>
+            </v-card>
+          </v-col>
+        </v-row>
+
+        <!-- Comprehensive Charts Section -->
+        <v-row class="mb-6">
+          <!-- Project Progress Overview -->
+          <v-col cols="12" md="6">
+            <v-card class="animate__animated animate__fadeInUp stagger-5">
+              <v-card-title class="d-flex align-center">
+                <v-icon class="mr-2">mdi-chart-bar</v-icon>
+                Project Progress Overview
+              </v-card-title>
+              <v-card-text>
+                <div class="progress-overview">
+                  <HorizontalProgressBar
+                    v-for="project in projectProgressData"
+                    :key="project.title"
+                    :title="project.title"
+                    :value="project.value"
+                    :color="project.color"
+                    :height="20"
+                    class="mb-4"
+                  />
+                </div>
+              </v-card-text>
+            </v-card>
+          </v-col>
+
+          <!-- Budget Utilization -->
+          <v-col cols="12" md="6">
+            <v-card class="animate__animated animate__fadeInUp stagger-6">
+              <v-card-title class="d-flex align-center">
+                <v-icon class="mr-2">mdi-currency-ngn</v-icon>
+                Budget Utilization
+              </v-card-title>
+              <v-card-text>
+                <div class="budget-utilization">
+                  <HorizontalProgressBar
+                    v-for="budget in budgetUtilizationData"
+                    :key="budget.title"
+                    :title="budget.title"
+                    :value="budget.value"
+                    :max="budget.total"
+                    :color="budget.color"
+                    :height="20"
+                    :budget-used="budget.budgetUsed"
+                    :budget-total="budget.budgetTotal"
+                    :show-budget-values="true"
+                    class="mb-4"
+                  />
+                </div>
+              </v-card-text>
+            </v-card>
+          </v-col>
+        </v-row>
+
+        <!-- Performance Metrics Row -->
+        <v-row class="mb-6">
+          <!-- Timeline Performance -->
+          <v-col cols="12" md="4">
+            <v-card class="animate__animated animate__fadeInUp stagger-7 h-100">
+              <v-card-title class="d-flex align-center">
+                <v-icon class="mr-2">mdi-clock-outline</v-icon>
+                Timeline Performance
+              </v-card-title>
+              <v-card-text class="d-flex align-center justify-center">
+                <CircularProgress
+                  :value="75"
+                  :size="120"
+                  color="#3B82F6"
+                  label="On Schedule"
+                />
+              </v-card-text>
+            </v-card>
+          </v-col>
+
+          <!-- Quality Score -->
+          <v-col cols="12" md="4">
+            <v-card class="animate__animated animate__fadeInUp stagger-8 h-100">
+              <v-card-title class="d-flex align-center">
+                <v-icon class="mr-2">mdi-star-outline</v-icon>
+                Quality Score
+              </v-card-title>
+              <v-card-text class="d-flex align-center justify-center">
+                <CircularProgress
+                  :value="85"
+                  :size="120"
+                  color="#10B981"
+                  label="Excellent"
+                />
+              </v-card-text>
+            </v-card>
+          </v-col>
+
+          <!-- Risk Level -->
+          <v-col cols="12" md="4">
+            <v-card class="animate__animated animate__fadeInUp stagger-9 h-100">
+              <v-card-title class="d-flex align-center">
+                <v-icon class="mr-2">mdi-alert-outline</v-icon>
+                Risk Level
+              </v-card-title>
+              <v-card-text class="d-flex align-center justify-center">
+                <CircularProgress
+                  :value="30"
+                  :size="120"
+                  color="#F59E0B"
+                  label="Low Risk"
+                />
+              </v-card-text>
+            </v-card>
+          </v-col>
+        </v-row>
+
+        <!-- Trends and Performance Row -->
+        <v-row class="mb-6">
+          <!-- Monthly Completion Trend -->
+          <v-col cols="12" md="6">
+            <v-card class="animate__animated animate__fadeInUp stagger-10">
+              <v-card-title class="d-flex align-center">
+                <v-icon class="mr-2">mdi-trending-up</v-icon>
+                Monthly Completion Trend
+              </v-card-title>
+              <v-card-text>
+                <TrendChart
+                  :data="monthlyCompletionData"
+                  :height="200"
+                  color-scheme="mixed"
+                />
+              </v-card-text>
+            </v-card>
+          </v-col>
+
+          <!-- Department Performance -->
+          <v-col cols="12" md="6">
+            <v-card class="animate__animated animate__fadeInUp stagger-11">
+              <v-card-title class="d-flex align-center">
+                <v-icon class="mr-2">mdi-account-group</v-icon>
+                Department Performance
+              </v-card-title>
+              <v-card-text>
+                <DepartmentPerformance :departments="departmentPerformanceData" />
+              </v-card-text>
+            </v-card>
+          </v-col>
+        </v-row>
+
+        <!-- Key Performance Indicators -->
+        <v-row class="mb-6">
+          <v-col cols="12">
+            <v-card class="animate__animated animate__fadeInUp stagger-12">
+              <v-card-title class="d-flex align-center">
+                <v-icon class="mr-2">mdi-speedometer</v-icon>
+                Key Performance Indicators
+              </v-card-title>
+              <v-card-text>
+                <v-row>
+                  <v-col
+                    v-for="(kpi, index) in kpiData"
+                    :key="index"
+                    cols="12"
+                    sm="6"
+                    lg="3"
+                  >
+                    <KPICard
+                      :value="kpi.value"
+                      :label="kpi.label"
+                      :format="kpi.format"
+                      :variant="kpi.variant"
+                      :icon="kpi.icon"
+                    />
+                  </v-col>
+                </v-row>
+              </v-card-text>
+            </v-card>
+          </v-col>
+        </v-row>
+
+        <!-- Interactive Map -->
+        <v-row class="mb-6">
+          <v-col cols="12">
+            <v-card class="animate__animated animate__fadeInUp stagger-5">
+              <v-card-title class="d-flex align-center">
+                <v-icon class="mr-2">mdi-map-marker-multiple</v-icon>
+                Project Locations Map
+                <v-spacer />
+                <v-chip color="primary" size="small" variant="flat">
+                  <v-icon start>mdi-map-marker</v-icon>
+                  {{ projects.filter(p => p.latitude && p.longitude).length }} Projects Mapped
+                </v-chip>
+              </v-card-title>
+              <v-card-text class="pa-4">
+                <ProjectMap
+                  :projects="projects"
+                  :lgas="lgas"
+                  :height="500"
+                  :center="[9.6167, 6.5500]"
+                  :zoom="8"
+                  :show-lga-markers="true"
+                />
+              </v-card-text>
+            </v-card>
+          </v-col>
+        </v-row>
+        <!-- Recent Activity and Alerts -->
+        <v-row class="mb-6">
+          <v-col cols="12" lg="8">
+            <v-card class="animate__animated animate__fadeInUp stagger-6">
+              <v-card-title class="d-flex align-center">
+                <v-icon class="mr-2">mdi-clock-outline</v-icon>
+                Recent Project Activity
+              </v-card-title>
+              <v-card-text>
+                <v-list v-if="dashboardStats?.recent_activity.length">
+                  <v-list-item
+                    v-for="activity in dashboardStats.recent_activity.slice(0, 5)"
+                    :key="activity.id"
+                    @click="navigateTo('projects.show', { id: activity.id })"
+                    class="cursor-pointer"
+                    rounded
+                  >
+                    <template #prepend>
+                      <v-avatar :color="getStatusColor(activity.status)" size="40" variant="flat">
+                        <v-icon color="white">{{ getStatusIcon(activity.status) }}</v-icon>
+                      </v-avatar>
+                    </template>
+                    <v-list-item-title>{{ activity.name }}</v-list-item-title>
+                    <v-list-item-subtitle>
+                      {{ activity.lga_name }} • {{ activity.progress_percentage }}% complete
+                      <br>
+                      <small class="text-caption">Updated {{ new Date(activity.updated_at).toLocaleDateString() }}</small>
+                    </v-list-item-subtitle>
+                    <template #append>
+                      <v-chip :color="getStatusColor(activity.status)" size="small" variant="flat">
+                        {{ formatStatus(activity.status) }}
+                      </v-chip>
+                    </template>
+                  </v-list-item>
+                </v-list>
+                <div v-else class="text-center py-8 text-medium-emphasis">
+                  <v-icon size="48" class="mb-2">mdi-clock-outline</v-icon>
+                  <div>No recent activity</div>
+                </div>
+              </v-card-text>
+              <v-card-actions>
+                <v-spacer />
+                <v-btn @click="navigateTo('projects.index')" color="primary" variant="flat">
+                  <v-icon start>mdi-folder-multiple</v-icon>
+                  View All Projects
+                </v-btn>
+              </v-card-actions>
+            </v-card>
+          </v-col>
+
+          <v-col cols="12" lg="4">
+            <v-card class="animate__animated animate__fadeInUp stagger-6">
+              <v-card-title class="d-flex align-center">
+                <v-icon class="mr-2">mdi-alert-circle-outline</v-icon>
+                Alerts & Notifications
+              </v-card-title>
+              <v-card-text>
+                <v-alert
+                  v-if="dashboardStats?.alerts.overdue_projects > 0"
+                  type="warning"
+                  variant="tonal"
+                  class="mb-3"
+                  density="compact"
+                >
+                  <v-icon start>mdi-clock-alert</v-icon>
+                  {{ dashboardStats.alerts.overdue_projects }} projects behind schedule
+                </v-alert>
+                <v-alert
+                  v-if="dashboardStats?.alerts.low_progress_projects > 0"
+                  type="info"
+                  variant="tonal"
+                  class="mb-3"
+                  density="compact"
+                >
+                  <v-icon start>mdi-progress-alert</v-icon>
+                  {{ dashboardStats.alerts.low_progress_projects }} projects with low progress
+                </v-alert>
+                <v-alert
+                  v-if="dashboardStats?.alerts.high_budget_utilization > 0"
+                  type="error"
+                  variant="tonal"
+                  class="mb-3"
+                  density="compact"
+                >
+                  <v-icon start>mdi-currency-usd-off</v-icon>
+                  {{ dashboardStats.alerts.high_budget_utilization }} projects over budget
+                </v-alert>
+                <v-alert
+                  v-if="!dashboardStats?.alerts.overdue_projects && !dashboardStats?.alerts.low_progress_projects && !dashboardStats?.alerts.high_budget_utilization"
+                  type="success"
+                  variant="tonal"
+                  density="compact"
+                >
+                  <v-icon start>mdi-check-circle</v-icon>
+                  All projects are on track
+                </v-alert>
+              </v-card-text>
+            </v-card>
+          </v-col>
+        </v-row>
+
+        <!-- Zone and LGA Performance -->
+        <v-row v-if="dashboardStats?.zone_stats.length" class="mb-6">
+          <v-col cols="12" md="6">
+            <v-card class="animate__animated animate__fadeInUp stagger-4">
+              <v-card-title class="d-flex align-center">
+                <v-icon class="mr-2">mdi-map-outline</v-icon>
+                Zone Performance
+              </v-card-title>
+              <v-card-text>
+                <v-list>
+                  <v-list-item
+                    v-for="zone in dashboardStats.zone_stats.slice(0, 3)"
+                    :key="zone.name"
+                  >
+                    <v-list-item-title>{{ zone.name }}</v-list-item-title>
+                    <v-list-item-subtitle>
+                      {{ zone.projects_count }} projects • {{ formatCurrency(zone.total_budget) }}
+                    </v-list-item-subtitle>
+                    <template #append>
+                      <v-chip color="primary" size="small" variant="flat">
+                        {{ zone.average_progress }}%
+                      </v-chip>
+                    </template>
+                  </v-list-item>
+                </v-list>
+              </v-card-text>
+            </v-card>
+          </v-col>
+
+          <v-col cols="12" md="6">
+            <v-card class="animate__animated animate__fadeInUp stagger-5">
+              <v-card-title class="d-flex align-center">
+                <v-icon class="mr-2">mdi-trophy</v-icon>
+                Top Performing LGAs
+              </v-card-title>
+              <v-card-text>
+                <v-list>
+                  <v-list-item
+                    v-for="lga in dashboardStats.lga_stats.slice(0, 3)"
+                    :key="lga.id"
+                  >
+                    <v-list-item-title>{{ lga.name }}</v-list-item-title>
+                    <v-list-item-subtitle>
+                      {{ lga.projects_count }} projects • {{ lga.zone }}
+                    </v-list-item-subtitle>
+                    <template #append>
+                      <v-chip color="success" size="small" variant="flat">
+                        {{ lga.average_progress }}%
+                      </v-chip>
+                    </template>
+                  </v-list-item>
+                </v-list>
+              </v-card-text>
+            </v-card>
+          </v-col>
+        </v-row>
+      </div>
+    </v-container>
+  </AppSidebarLayout>
+</template>
+
+
+<style scoped>
+.cursor-pointer {
+  cursor: pointer;
+}
+
+/* Animation delays are now handled by the custom animations.css file */
+
+/* Custom card hover effects */
+.v-card {
+  transition: all 0.3s ease;
+}
+
+.v-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Stats card enhancements */
+.v-card[variant="tonal"] {
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+}
+
+/* List item hover effects */
+.v-list-item:hover {
+  background-color: rgba(var(--v-theme-primary), 0.04);
+}
+
+/* Chart container styling */
+.progress-overview .mb-4:last-child,
+.budget-utilization .mb-4:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* Animation delays for staggered effects */
+.stagger-5 { animation-delay: 0.5s; }
+.stagger-6 { animation-delay: 0.6s; }
+.stagger-7 { animation-delay: 0.7s; }
+.stagger-8 { animation-delay: 0.8s; }
+.stagger-9 { animation-delay: 0.9s; }
+.stagger-10 { animation-delay: 1.0s; }
+.stagger-11 { animation-delay: 1.1s; }
+.stagger-12 { animation-delay: 1.2s; }
+
+/* Enhanced hover effects for stats cards */
+.stats-card-hover {
+  transition: all 0.3s ease;
+}
+
+.stats-card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
+}
+</style>
+
+
+
