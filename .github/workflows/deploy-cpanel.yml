@@ -30,6 +30,9 @@ jobs:
     - name: Install NPM dependencies
       run: npm ci
 
+    - name: Generate Wayfinder Types
+      run: php artisan wayfinder:generate --with-form
+
     - name: Build assets
       run: npm run build
 

@@ -28,4 +28,16 @@ export default defineConfig({
             '@': path.resolve(__dirname, 'resources/js'),
         },
     },
+    build: {
+        // Increase chunk size warning limit
+        chunkSizeWarningLimit: 1000,
+        rollupOptions: {
+            output: {
+                manualChunks: {
+                    vendor: ['vue', 'vue-router'],
+                    vuetify: ['vuetify'],
+                },
+            },
+        },
+    },
 });
