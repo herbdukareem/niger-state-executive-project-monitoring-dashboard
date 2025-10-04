@@ -2,10 +2,15 @@
 
 use Illuminate\Support\Facades\Route;
 
+// Home route (redirects to dashboard)
+Route::get('/', function () {
+    return redirect()->route('dashboard');
+})->name('home');
+
 // Named routes for common paths (for Laravel redirects)
 Route::get('/dashboard', function () {
     return view('app');
-})->name('dashboard');
+})->middleware('auth')->name('dashboard');
 
 Route::get('/login', function () {
     return view('app');
