@@ -47,8 +47,8 @@ class AuthController extends Controller
 
         // Handle both old enum role field and new role relationship
         $roleName = null;
-        if ($user->role_id && $user->role) {
-            // New role relationship
+        if ($user->role_id && $user->role instanceof \App\Models\Role) {
+            // New role relationship - ensure it's actually a Role model object
             $roleName = $user->role->name;
         } elseif (isset($user->getAttributes()['role'])) {
             // Old enum role field (fallback)
@@ -93,8 +93,8 @@ class AuthController extends Controller
 
         // Handle both old enum role field and new role relationship
         $roleName = null;
-        if ($user->role_id && $user->role) {
-            // New role relationship
+        if ($user->role_id && $user->role instanceof \App\Models\Role) {
+            // New role relationship - ensure it's actually a Role model object
             $roleName = $user->role->name;
         } elseif (isset($user->getAttributes()['role'])) {
             // Old enum role field (fallback)

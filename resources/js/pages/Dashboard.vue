@@ -60,6 +60,40 @@ interface DashboardStats {
     budget_utilization: number;
     average_progress: number;
   };
+  work_plan_metrics: {
+    total_activities: number;
+    completed_activities: number;
+    in_progress_activities: number;
+    delayed_activities: number;
+    overdue_activities: number;
+    completion_rate: number;
+    category_progress: Array<{
+      category: string;
+      progress_percentage: number;
+      total_activities: number;
+      completed_activities: number;
+      completion_rate: number;
+    }>;
+  };
+  monthly_trends: Array<{
+    month: string;
+    year: string;
+    completed_activities: number;
+    total_activities: number;
+    completion_rate: number;
+  }>;
+  department_performance: Array<{
+    sector: string;
+    total_projects: number;
+    avg_progress: number;
+    total_budget: number;
+    total_expenditure: number;
+    budget_utilization: number;
+    total_activities: number;
+    completed_activities: number;
+    activity_completion_rate: number;
+    avg_activity_progress: number;
+  }>;
   lga_stats: Array<{
     id: number;
     name: string;
@@ -205,45 +239,39 @@ const statsCards = computed(() => {
 
 // Chart data computed properties with memoization
 const projectProgressData = computed(() => {
-  if (!dashboardStats.value || !projects.value.length) return [];
+  if (!dashboardStats.value?.work_plan_metrics) return [];
 
-  const currentHash = createDataHash(projects.value);
+  const currentHash = createDataHash(dashboardStats.value.work_plan_metrics);
   if (chartDataCache.value.projectProgress && chartDataCache.value.lastProjectsHash === currentHash) {
     return chartDataCache.value.projectProgress;
   }
 
-  // Group projects by category and calculate average progress
-  const categories: Record<string, { projects: Project[], color: string }> = {
-    'Infrastructure': { projects: [], color: '#3B82F6' },
-    'Agriculture': { projects: [], color: '#10B981' },
-    'Education': { projects: [], color: '#8B5CF6' },
-    'Healthcare': { projects: [], color: '#EF4444' },
-    'Water': { projects: [], color: '#06B6D4' }
+  // Use work plan category progress data
+  const categoryProgress = dashboardStats.value.work_plan_metrics.category_progress || [];
+
+  // Define colors for categories
+  const categoryColors: Record<string, string> = {
+    'Planning': '#3B82F6',
+    'Implementation': '#10B981',
+    'Monitoring': '#8B5CF6',
+    'Evaluation': '#EF4444',
+    'Procurement': '#06B6D4',
+    'Construction': '#F59E0B',
+    'Training': '#EC4899',
+    'Documentation': '#6B7280'
   };
 
-  projects.value.forEach(project => {
-    const name = project.name.toLowerCase();
-    if (name.includes('road') || name.includes('infrastructure') || name.includes('construction')) {
-      categories['Infrastructure'].projects.push(project);
-    } else if (name.includes('agriculture') || name.includes('farm') || name.includes('crop')) {
-      categories['Agriculture'].projects.push(project);
-    } else if (name.includes('education') || name.includes('school') || name.includes('university')) {
-      categories['Education'].projects.push(project);
-    } else if (name.includes('health') || name.includes('hospital') || name.includes('clinic')) {
-      categories['Healthcare'].projects.push(project);
-    } else if (name.includes('water') || name.includes('dam') || name.includes('irrigation')) {
-      categories['Water'].projects.push(project);
-    } else {
-      categories['Infrastructure'].projects.push(project); // Default category
-    }
-  });
-
-  const result = Object.entries(categories)
-    .filter(([_, data]) => data.projects.length > 0)
-    .map(([title, data]) => ({
-      title,
-      value: data.projects.reduce((sum, p) => sum + p.progress_percentage, 0) / data.projects.length,
-      color: data.color
+  const result = categoryProgress
+    .filter(category =>
+      typeof category.progress_percentage === 'number' &&
+      !isNaN(category.progress_percentage) &&
+      isFinite(category.progress_percentage)
+    )
+    .map(category => ({
+      title: category.category,
+      value: Math.max(0, Math.min(100, category.progress_percentage)),
+      color: categoryColors[category.category] || '#6B7280',
+      subtitle: `${category.completed_activities}/${category.total_activities} activities`
     }));
 
   // Cache the result
@@ -254,116 +282,118 @@ const projectProgressData = computed(() => {
 });
 
 const budgetUtilizationData = computed(() => {
-  if (!dashboardStats.value || !projects.value.length) return [];
+  if (!dashboardStats.value?.department_performance) return [];
 
-  // Group projects by category and calculate budget utilization
-  const categories: Record<string, { total: number, used: number, color: string }> = {
-    'Infrastructure': { total: 0, used: 0, color: '#3B82F6' },
-    'Agriculture': { total: 0, used: 0, color: '#10B981' },
-    'Education': { total: 0, used: 0, color: '#8B5CF6' },
-    'Healthcare': { total: 0, used: 0, color: '#EF4444' }
+  // Use department performance data for budget utilization
+  const departmentData = dashboardStats.value.department_performance || [];
+
+  // Define colors for sectors
+  const sectorColors: Record<string, string> = {
+    'Infrastructure': '#3B82F6',
+    'Agriculture': '#10B981',
+    'Education': '#8B5CF6',
+    'Healthcare': '#EF4444',
+    'Water': '#06B6D4',
+    'Energy': '#F59E0B',
+    'Transportation': '#EC4899',
+    'Technology': '#6B7280'
   };
 
-  projects.value.forEach(project => {
-    const name = project.name.toLowerCase();
-    const budget = project.total_budget || 0;
-    const used = (budget * project.progress_percentage) / 100;
+  const result = departmentData
+    .filter(dept =>
+      typeof dept.budget_utilization === 'number' &&
+      !isNaN(dept.budget_utilization) &&
+      isFinite(dept.budget_utilization) &&
+      dept.total_budget > 0
+    )
+    .map(dept => ({
+      title: dept.sector,
+      value: Math.max(0, Math.min(100, dept.budget_utilization)),
+      total: 100, // Budget utilization is already a percentage
+      budgetUsed: dept.total_expenditure,
+      budgetTotal: dept.total_budget,
+      color: sectorColors[dept.sector] || '#6B7280',
+      subtitle: `₦${(dept.total_expenditure / 1000000).toFixed(1)}M / ₦${(dept.total_budget / 1000000).toFixed(1)}M`
+    }))
+    .sort((a, b) => b.value - a.value); // Sort by utilization percentage
 
-    if (name.includes('road') || name.includes('infrastructure') || name.includes('construction')) {
-      categories['Infrastructure'].total += budget;
-      categories['Infrastructure'].used += used;
-    } else if (name.includes('agriculture') || name.includes('farm') || name.includes('crop')) {
-      categories['Agriculture'].total += budget;
-      categories['Agriculture'].used += used;
-    } else if (name.includes('education') || name.includes('school') || name.includes('university')) {
-      categories['Education'].total += budget;
-      categories['Education'].used += used;
-    } else if (name.includes('health') || name.includes('hospital') || name.includes('clinic')) {
-      categories['Healthcare'].total += budget;
-      categories['Healthcare'].used += used;
-    } else {
-      categories['Infrastructure'].total += budget;
-      categories['Infrastructure'].used += used;
-    }
-  });
-
-  return Object.entries(categories)
-    .filter(([_, data]) => data.total > 0)
-    .map(([title, data]) => ({
-      title,
-      value: data.used,
-      total: data.total,
-      color: data.color
-    }));
+  return result;
 });
 
 const monthlyCompletionData = computed(() => {
-  if (!projects.value.length) return [];
+  if (!dashboardStats.value?.monthly_trends) return [];
 
-  // Get current year and last 6 months
-  const now = new Date();
-  const months: Array<{ label: string; value: number; month: number; year: number }> = [];
-  for (let i = 5; i >= 0; i--) {
-    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    months.push({
-      label: date.toLocaleDateString('en-US', { month: 'short' }),
-      value: 0,
-      month: date.getMonth(),
-      year: date.getFullYear()
-    });
+  const currentHash = createDataHash(dashboardStats.value.monthly_trends);
+  if (chartDataCache.value.monthlyCompletion && chartDataCache.value.lastStatsHash === currentHash) {
+    return chartDataCache.value.monthlyCompletion;
   }
 
-  // Count completed projects by month (using end_date for completed projects)
-  projects.value.forEach(project => {
-    if (project.status === 'completed' && project.end_date) {
-      const endDate = new Date(project.end_date);
-      const monthData = months.find(m =>
-        m.month === endDate.getMonth() &&
-        m.year === endDate.getFullYear()
-      );
-      if (monthData) {
-        monthData.value++;
-      }
-    }
-  });
+  // Use monthly trends data from API
+  const trends = dashboardStats.value.monthly_trends || [];
 
-  return months;
+  const result = trends
+    .filter(trend =>
+      typeof trend.completion_rate === 'number' &&
+      !isNaN(trend.completion_rate) &&
+      isFinite(trend.completion_rate)
+    )
+    .map(trend => ({
+      label: trend.month,
+      value: Math.max(0, Math.min(100, trend.completion_rate)),
+      subtitle: `${trend.completed_activities} activities completed`
+    }));
+
+  // Cache the result
+  chartDataCache.value.monthlyCompletion = result;
+  chartDataCache.value.lastStatsHash = currentHash;
+
+  return result;
 });
 
 const departmentPerformanceData = computed(() => {
-  if (!projects.value.length) return [];
+  if (!dashboardStats.value?.department_performance) return [];
 
-  const departments: Record<string, { projects: Project[], color: string }> = {
-    'Infrastructure': { projects: [], color: '#3B82F6' },
-    'Agriculture': { projects: [], color: '#10B981' },
-    'Education': { projects: [], color: '#8B5CF6' },
-    'Healthcare': { projects: [], color: '#EF4444' }
+  const currentHash = createDataHash(dashboardStats.value.department_performance);
+  if (chartDataCache.value.departmentPerformance && chartDataCache.value.lastStatsHash === currentHash) {
+    return chartDataCache.value.departmentPerformance;
+  }
+
+  // Use department performance data from API
+  const departments = dashboardStats.value.department_performance || [];
+
+  // Define colors for sectors
+  const sectorColors: Record<string, string> = {
+    'Infrastructure': '#3B82F6',
+    'Agriculture': '#10B981',
+    'Education': '#8B5CF6',
+    'Healthcare': '#EF4444',
+    'Water': '#06B6D4',
+    'Energy': '#F59E0B',
+    'Transportation': '#EC4899',
+    'Technology': '#6B7280'
   };
 
-  projects.value.forEach(project => {
-    const name = project.name.toLowerCase();
-    if (name.includes('road') || name.includes('infrastructure') || name.includes('construction')) {
-      departments['Infrastructure'].projects.push(project);
-    } else if (name.includes('agriculture') || name.includes('farm') || name.includes('crop')) {
-      departments['Agriculture'].projects.push(project);
-    } else if (name.includes('education') || name.includes('school') || name.includes('university')) {
-      departments['Education'].projects.push(project);
-    } else if (name.includes('health') || name.includes('hospital') || name.includes('clinic')) {
-      departments['Healthcare'].projects.push(project);
-    } else {
-      departments['Infrastructure'].projects.push(project);
-    }
-  });
-
-  return Object.entries(departments)
-    .filter(([_, data]) => data.projects.length > 0)
-    .map(([name, data]) => ({
-      name,
-      performance: Math.round(data.projects.reduce((sum, p) => sum + p.progress_percentage, 0) / data.projects.length),
-      projectCount: data.projects.length,
-      color: data.color
+  const result = departments
+    .filter(dept =>
+      typeof dept.avg_activity_progress === 'number' &&
+      !isNaN(dept.avg_activity_progress) &&
+      isFinite(dept.avg_activity_progress)
+    )
+    .map(dept => ({
+      name: dept.sector,
+      performance: Math.round(Math.max(0, Math.min(100, dept.avg_activity_progress))),
+      projectCount: dept.total_projects,
+      activityCount: dept.total_activities,
+      completionRate: dept.activity_completion_rate,
+      color: sectorColors[dept.sector] || '#6B7280'
     }))
     .sort((a, b) => b.performance - a.performance);
+
+  // Cache the result
+  chartDataCache.value.departmentPerformance = result;
+  chartDataCache.value.lastStatsHash = currentHash;
+
+  return result;
 });
 
 const kpiData = computed(() => {
@@ -709,8 +739,8 @@ onUnmounted(() => {
                     :max="budget.total"
                     :color="budget.color"
                     :height="20"
-                    :budget-used="budget.value"
-                    :budget-total="budget.total"
+                    :budget-used="budget.budgetUsed"
+                    :budget-total="budget.budgetTotal"
                     :show-budget-values="true"
                     class="mb-4"
                   />

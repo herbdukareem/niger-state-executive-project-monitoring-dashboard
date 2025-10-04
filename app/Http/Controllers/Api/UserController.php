@@ -90,7 +90,7 @@ class UserController extends Controller
 
         // Transform user to include role color and icon
         $userData = $user->toArray();
-        if ($user->role) {
+        if ($user->role instanceof \App\Models\Role) {
             $userData['role']['color'] = $user->role->color;
             $userData['role']['icon'] = $user->role->icon;
         }
@@ -114,7 +114,7 @@ class UserController extends Controller
 
         // Transform user to include role color and icon
         $userData = $user->toArray();
-        if ($user->role) {
+        if ($user->role instanceof \App\Models\Role) {
             $userData['role']['color'] = $user->role->color;
             $userData['role']['icon'] = $user->role->icon;
         }
@@ -150,7 +150,7 @@ class UserController extends Controller
 
         // Transform user to include role color and icon
         $userData = $user->toArray();
-        if ($user->role) {
+        if ($user->role instanceof \App\Models\Role) {
             $userData['role']['color'] = $user->role->color;
             $userData['role']['icon'] = $user->role->icon;
         }

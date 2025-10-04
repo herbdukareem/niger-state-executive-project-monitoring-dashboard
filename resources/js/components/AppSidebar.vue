@@ -25,7 +25,7 @@
 
         <!-- Mobile Navigation -->
         <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
-          <div v-for="section in navigationItems" :key="section.id" class="space-y-1">
+          <div v-for="section in filteredNavigationItems" :key="section.id" class="space-y-1">
             <button
               @click="toggleSection(section.id)"
               class="flex items-center justify-between w-full px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider hover:text-gray-700 transition-colors"
@@ -112,7 +112,7 @@
 
       <!-- Desktop Navigation -->
       <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
-        <div v-for="section in navigationItems" :key="section.id" class="space-y-1">
+        <div v-for="section in filteredNavigationItems" :key="section.id" class="space-y-1">
           <button
             v-if="!isCollapsed"
             @click="toggleSection(section.id)"
@@ -183,8 +183,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
+import { useAuthStore } from '@/stores/auth';
 import {
     LayoutGrid,
     Folder,
@@ -194,6 +195,7 @@ import {
     Settings,
     Users,
     UserCog,
+    Shield,
     FileText,
     Calendar,
     DollarSign,
@@ -207,6 +209,7 @@ import {
 
 const router = useRouter();
 const route = useRoute();
+const authStore = useAuthStore();
 
 // Sidebar state
 const isCollapsed = ref(false);
@@ -307,6 +310,13 @@ const navigationItems = ref([
                 badge: null
             },
             {
+                title: 'Roles & Permissions',
+                href: '/roles',
+                routeName: 'roles.index',
+                icon: Shield,
+                badge: null
+            },
+            {
                 title: 'Risk Assessment',
                 href: '/risk',
                 routeName: 'risk',
@@ -329,6 +339,29 @@ const navigationItems = ref([
         ]
     }
 ]);
+
+// Filter navigation items based on user permissions
+const filteredNavigationItems = computed(() => {
+    if (!authStore.isAuthenticated) {
+        return navigationItems.value;
+    }
+
+    return navigationItems.value.map(section => ({
+        ...section,
+        items: section.items.filter(item => {
+            // Show User Management only to admin users
+            if (item.routeName === 'users.index') {
+                return authStore.isAdmin;
+            }
+            // Show Roles & Permissions to admin users (admin, super_admin, governor)
+            if (item.routeName === 'roles.index') {
+                return authStore.isAdmin;
+            }
+            // Show all other items to authenticated users
+            return true;
+        })
+    })).filter(section => section.items.length > 0); // Remove empty sections
+});
 
 // Collapsed sections state
 const collapsedSections = ref(new Set());

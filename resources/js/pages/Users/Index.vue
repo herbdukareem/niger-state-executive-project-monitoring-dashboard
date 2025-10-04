@@ -1,399 +1,370 @@
 <template>
   <AppLayout>
-    <div class="py-6">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <!-- Header -->
-        <div class="md:flex md:items-center md:justify-between mb-6">
-          <div class="min-w-0 flex-1">
-            <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
-              User Management
-            </h2>
-            <p class="mt-1 text-sm text-gray-500">
-              Manage system users, roles, and permissions
-            </p>
-          </div>
-          <div class="mt-4 flex md:ml-4 md:mt-0">
-            <button
-              @click="openCreateModal"
-              class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
-            >
-              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-              </svg>
-              Add User
-            </button>
-          </div>
+    <v-container fluid class="pa-6">
+      <!-- Header -->
+      <div class="d-flex align-center justify-space-between mb-6">
+        <div>
+          <h1 class="text-h4 font-weight-bold text-grey-darken-3 mb-2">
+            User Management
+          </h1>
+          <p class="text-body-2 text-grey-darken-1">
+            Manage system users, roles, and permissions
+          </p>
+        </div>
+        <v-btn
+          @click="openCreateModal"
+          color="primary"
+          prepend-icon="mdi-plus"
+          variant="elevated"
+        >
+          Add User
+        </v-btn>
+      </div>
+
+      <!-- Filters -->
+      <v-card class="mb-6" elevation="2">
+        <v-card-text>
+          <v-row>
+            <v-col cols="12" sm="6" md="3">
+              <v-text-field
+                v-model="filters.search"
+                label="Search users..."
+                prepend-inner-icon="mdi-magnify"
+                variant="outlined"
+                density="compact"
+                clearable
+                @input="debouncedSearch"
+              />
+            </v-col>
+            <v-col cols="12" sm="6" md="3">
+              <v-select
+                v-model="filters.role"
+                :items="roleOptions"
+                label="Role"
+                variant="outlined"
+                density="compact"
+                clearable
+                @update:model-value="() => fetchUsers(1)"
+              />
+            </v-col>
+            <v-col cols="12" sm="6" md="3">
+              <v-select
+                v-model="filters.status"
+                :items="statusOptions"
+                label="Status"
+                variant="outlined"
+                density="compact"
+                clearable
+                @update:model-value="() => fetchUsers(1)"
+              />
+            </v-col>
+            <v-col cols="12" sm="6" md="3" class="d-flex align-end">
+              <v-btn
+                @click="clearFilters"
+                variant="outlined"
+                color="grey"
+                block
+                prepend-icon="mdi-filter-remove"
+              >
+                Clear Filters
+              </v-btn>
+            </v-col>
+          </v-row>
+        </v-card-text>
+      </v-card>
+
+      <!-- Users Table -->
+      <v-card elevation="2">
+        <v-card-title class="d-flex align-center">
+          <v-icon class="me-2">mdi-account-group</v-icon>
+          Users ({{ meta.total }})
+        </v-card-title>
+
+        <!-- Loading State -->
+        <div v-if="loading" class="text-center pa-8">
+          <v-progress-circular
+            indeterminate
+            color="primary"
+            size="64"
+          />
+          <p class="mt-4 text-body-2 text-grey-darken-1">Loading users...</p>
         </div>
 
-        <!-- Filters -->
-        <div class="bg-white shadow rounded-lg mb-6">
-          <div class="px-4 py-5 sm:p-6">
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-700">Search</label>
-                <input
-                  v-model="filters.search"
-                  type="text"
-                  placeholder="Search users..."
-                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  @input="debouncedSearch"
+        <!-- Users List -->
+        <v-list v-else-if="users.length > 0" lines="three">
+          <v-list-item
+            v-for="user in users"
+            :key="user.id"
+            class="border-b"
+          >
+            <template #prepend>
+              <v-avatar color="grey-lighten-2" size="40">
+                <span class="text-h6">{{ user.name.charAt(0).toUpperCase() }}</span>
+              </v-avatar>
+            </template>
+
+            <v-list-item-title class="d-flex align-center">
+              <span class="font-weight-medium">{{ user.name }}</span>
+              <v-chip
+                v-if="user.role"
+                :color="user.role.color || 'primary'"
+                size="small"
+                class="ml-2"
+                variant="tonal"
+              >
+                <v-icon start size="small">{{ user.role.icon || 'mdi-account' }}</v-icon>
+                {{ user.role.display_name }}
+              </v-chip>
+              <v-chip
+                :color="user.is_active ? 'success' : 'error'"
+                size="small"
+                class="ml-2"
+                variant="tonal"
+              >
+                {{ user.is_active ? 'Active' : 'Inactive' }}
+              </v-chip>
+            </v-list-item-title>
+
+            <v-list-item-subtitle>
+              <div>{{ user.email }}</div>
+              <div v-if="user.organization || user.position">
+                {{ user.organization }}{{ user.organization && user.position ? ' • ' : '' }}{{ user.position }}
+              </div>
+            </v-list-item-subtitle>
+
+            <template #append>
+              <div class="d-flex align-center">
+                <v-btn
+                  @click="editUser(user)"
+                  icon="mdi-pencil"
+                  variant="text"
+                  color="primary"
+                  size="small"
+                />
+                <v-btn
+                  @click="toggleUserStatus(user)"
+                  :icon="user.is_active ? 'mdi-account-off' : 'mdi-account-check'"
+                  variant="text"
+                  :color="user.is_active ? 'error' : 'success'"
+                  size="small"
+                />
+                <v-btn
+                  @click="deleteUser(user)"
+                  icon="mdi-delete"
+                  variant="text"
+                  color="error"
+                  size="small"
                 />
               </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700">Role</label>
-                <select
-                  v-model="filters.role"
-                  @change="fetchUsers"
-                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                >
-                  <option value="">All Roles</option>
-                  <option v-for="role in roles" :key="role.id" :value="role.name">
-                    {{ role.display_name }}
-                  </option>
-                </select>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700">Status</label>
-                <select
-                  v-model="filters.status"
-                  @change="fetchUsers"
-                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                >
-                  <option value="">All Status</option>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-              </div>
-              <div class="flex items-end">
-                <button
-                  @click="clearFilters"
-                  class="w-full inline-flex justify-center items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-                >
-                  Clear Filters
-                </button>
-              </div>
-            </div>
-          </div>
+            </template>
+          </v-list-item>
+        </v-list>
+
+        <!-- Empty State -->
+        <div v-else class="text-center pa-8">
+          <v-icon size="64" color="grey-lighten-1">mdi-account-group-outline</v-icon>
+          <h3 class="text-h6 mt-4 text-grey-darken-2">No users found</h3>
+          <p class="text-body-2 text-grey-darken-1 mt-2">Get started by creating a new user.</p>
         </div>
 
-        <!-- Users Table -->
-        <div class="bg-white shadow overflow-hidden sm:rounded-lg">
-          <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
-            <h3 class="text-lg leading-6 font-medium text-gray-900">
-              Users ({{ meta.total }})
-            </h3>
+        <!-- Pagination -->
+        <v-card-actions v-if="meta.last_page > 1" class="justify-space-between">
+          <div class="text-body-2 text-grey-darken-1">
+            Showing {{ (meta.current_page - 1) * meta.per_page + 1 }} to {{ Math.min(meta.current_page * meta.per_page, meta.total) }} of {{ meta.total }} results
           </div>
-          
-          <!-- Loading State -->
-          <div v-if="loading" class="px-4 py-8 text-center">
-            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
-            <p class="mt-2 text-sm text-gray-500">Loading users...</p>
-          </div>
-
-          <!-- Users List -->
-          <div v-else-if="users.length > 0" class="divide-y divide-gray-200">
-            <div
-              v-for="user in users"
-              :key="user.id"
-              class="px-4 py-4 hover:bg-gray-50"
-            >
-              <div class="flex items-center justify-between">
-                <div class="flex items-center">
-                  <div class="flex-shrink-0">
-                    <div class="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
-                      <span class="text-sm font-medium text-gray-700">
-                        {{ user.name.charAt(0).toUpperCase() }}
-                      </span>
-                    </div>
-                  </div>
-                  <div class="ml-4">
-                    <div class="flex items-center">
-                      <p class="text-sm font-medium text-gray-900">{{ user.name }}</p>
-                      <span
-                        v-if="user.role"
-                        :class="`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-${user.role.color}-100 text-${user.role.color}-800`"
-                      >
-                        <svg :class="`w-3 h-3 mr-1`" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
-                        </svg>
-                        {{ user.role.display_name }}
-                      </span>
-                      <span
-                        :class="`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`"
-                      >
-                        {{ user.is_active ? 'Active' : 'Inactive' }}
-                      </span>
-                    </div>
-                    <p class="text-sm text-gray-500">{{ user.email }}</p>
-                    <p class="text-sm text-gray-500">{{ user.organization }} • {{ user.position }}</p>
-                  </div>
-                </div>
-                <div class="flex items-center space-x-2">
-                  <button
-                    @click="editUser(user)"
-                    class="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    @click="toggleUserStatus(user)"
-                    :class="`text-sm font-medium ${
-                      user.is_active ? 'text-red-600 hover:text-red-900' : 'text-green-600 hover:text-green-900'
-                    }`"
-                  >
-                    {{ user.is_active ? 'Deactivate' : 'Activate' }}
-                  </button>
-                  <button
-                    @click="deleteUser(user)"
-                    class="text-red-600 hover:text-red-900 text-sm font-medium"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Empty State -->
-          <div v-else class="px-4 py-8 text-center">
-            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
-            </svg>
-            <h3 class="mt-2 text-sm font-medium text-gray-900">No users found</h3>
-            <p class="mt-1 text-sm text-gray-500">Get started by creating a new user.</p>
-          </div>
-
-          <!-- Pagination -->
-          <div v-if="meta.last_page > 1" class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
-            <div class="flex items-center justify-between">
-              <div class="flex-1 flex justify-between sm:hidden">
-                <button
-                  @click="changePage(meta.current_page - 1)"
-                  :disabled="meta.current_page <= 1"
-                  class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-                >
-                  Previous
-                </button>
-                <button
-                  @click="changePage(meta.current_page + 1)"
-                  :disabled="meta.current_page >= meta.last_page"
-                  class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-                >
-                  Next
-                </button>
-              </div>
-              <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                <div>
-                  <p class="text-sm text-gray-700">
-                    Showing {{ (meta.current_page - 1) * meta.per_page + 1 }} to {{ Math.min(meta.current_page * meta.per_page, meta.total) }} of {{ meta.total }} results
-                  </p>
-                </div>
-                <div>
-                  <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                    <button
-                      @click="changePage(meta.current_page - 1)"
-                      :disabled="meta.current_page <= 1"
-                      class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      Previous
-                    </button>
-                    <button
-                      @click="changePage(meta.current_page + 1)"
-                      :disabled="meta.current_page >= meta.last_page"
-                      class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      Next
-                    </button>
-                  </nav>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+          <v-pagination
+            v-model="meta.current_page"
+            :length="meta.last_page"
+            :total-visible="7"
+            @update:model-value="changePage"
+          />
+        </v-card-actions>
+      </v-card>
+    </v-container>
 
     <!-- Create/Edit User Modal -->
-    <div v-if="showCreateDialog" class="fixed inset-0 z-50 overflow-y-auto">
-      <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <!-- Background overlay -->
-        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="closeModal"></div>
+    <v-dialog
+      v-model="showCreateDialog"
+      max-width="600px"
+      persistent
+    >
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon class="me-2">{{ editingUser ? 'mdi-account-edit' : 'mdi-account-plus' }}</v-icon>
+          {{ editingUser ? 'Edit User' : 'Create New User' }}
+        </v-card-title>
 
-        <!-- Modal panel -->
-        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-          <form @submit.prevent="submitForm">
-            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-              <div class="sm:flex sm:items-start">
-                <div class="w-full">
-                  <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
-                    {{ editingUser ? 'Edit User' : 'Create New User' }}
-                  </h3>
+        <v-form @submit.prevent="submitForm">
+          <v-card-text>
+            <v-container>
+              <v-row>
+                <!-- Name -->
+                <v-col cols="12">
+                  <v-text-field
+                    v-model="form.name"
+                    label="Full Name"
+                    variant="outlined"
+                    required
+                    :rules="[v => !!v || 'Name is required']"
+                  />
+                </v-col>
 
-                  <!-- Form Fields -->
-                  <div class="space-y-4">
-                    <!-- Name -->
-                    <div>
-                      <label class="block text-sm font-medium text-gray-700">Full Name *</label>
-                      <input
-                        v-model="form.name"
-                        type="text"
-                        required
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                        placeholder="Enter full name"
-                      />
-                    </div>
+                <!-- Email -->
+                <v-col cols="12">
+                  <v-text-field
+                    v-model="form.email"
+                    label="Email Address"
+                    type="email"
+                    variant="outlined"
+                    required
+                    :rules="[v => !!v || 'Email is required', v => /.+@.+\..+/.test(v) || 'Email must be valid']"
+                  />
+                </v-col>
 
-                    <!-- Email -->
-                    <div>
-                      <label class="block text-sm font-medium text-gray-700">Email Address *</label>
-                      <input
-                        v-model="form.email"
-                        type="email"
-                        required
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                        placeholder="Enter email address"
-                      />
-                    </div>
+                <!-- Password -->
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    v-model="form.password"
+                    :label="`Password${editingUser ? '' : ' *'}`"
+                    type="password"
+                    variant="outlined"
+                    :required="!editingUser"
+                    :rules="!editingUser ? [v => !!v || 'Password is required'] : []"
+                    :hint="editingUser ? 'Leave blank to keep current password' : ''"
+                    persistent-hint
+                  />
+                </v-col>
 
-                    <!-- Password -->
-                    <div>
-                      <label class="block text-sm font-medium text-gray-700">
-                        Password {{ editingUser ? '' : '*' }}
-                      </label>
-                      <input
-                        v-model="form.password"
-                        type="password"
-                        :required="!editingUser"
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                        placeholder="Enter password"
-                      />
-                      <p v-if="editingUser" class="mt-1 text-xs text-gray-500">Leave blank to keep current password</p>
-                    </div>
+                <!-- Confirm Password -->
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    v-model="form.password_confirmation"
+                    :label="`Confirm Password${editingUser ? '' : ' *'}`"
+                    type="password"
+                    variant="outlined"
+                    :required="!editingUser && !!form.password"
+                    :rules="passwordConfirmationRules"
+                  />
+                </v-col>
 
-                    <!-- Confirm Password -->
-                    <div>
-                      <label class="block text-sm font-medium text-gray-700">
-                        Confirm Password {{ editingUser ? '' : '*' }}
-                      </label>
-                      <input
-                        v-model="form.password_confirmation"
-                        type="password"
-                        :required="!editingUser && form.password"
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                        placeholder="Confirm password"
-                      />
-                    </div>
+                <!-- Role -->
+                <v-col cols="12">
+                  <v-select
+                    v-model="form.role_id"
+                    :items="roleSelectOptions"
+                    label="Role"
+                    variant="outlined"
+                    required
+                    :rules="[v => !!v || 'Role is required']"
+                  />
+                </v-col>
 
-                    <!-- Role -->
-                    <div>
-                      <label class="block text-sm font-medium text-gray-700">Role *</label>
-                      <select
-                        v-model="form.role_id"
-                        required
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                      >
-                        <option value="">Select a role</option>
-                        <option v-for="role in roles" :key="role.id" :value="role.id">
-                          {{ role.display_name }}
-                        </option>
-                      </select>
-                    </div>
+                <!-- Organization -->
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    v-model="form.organization"
+                    label="Organization"
+                    variant="outlined"
+                  />
+                </v-col>
 
-                    <!-- Organization -->
-                    <div>
-                      <label class="block text-sm font-medium text-gray-700">Organization</label>
-                      <input
-                        v-model="form.organization"
-                        type="text"
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                        placeholder="Enter organization"
-                      />
-                    </div>
+                <!-- Position -->
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    v-model="form.position"
+                    label="Position/Title"
+                    variant="outlined"
+                  />
+                </v-col>
 
-                    <!-- Position -->
-                    <div>
-                      <label class="block text-sm font-medium text-gray-700">Position</label>
-                      <input
-                        v-model="form.position"
-                        type="text"
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                        placeholder="Enter position/title"
-                      />
-                    </div>
+                <!-- Phone -->
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    v-model="form.phone"
+                    label="Phone Number"
+                    type="tel"
+                    variant="outlined"
+                  />
+                </v-col>
 
-                    <!-- Phone -->
-                    <div>
-                      <label class="block text-sm font-medium text-gray-700">Phone Number</label>
-                      <input
-                        v-model="form.phone"
-                        type="tel"
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                        placeholder="Enter phone number"
-                      />
-                    </div>
+                <!-- Address -->
+                <v-col cols="12" md="6">
+                  <v-textarea
+                    v-model="form.address"
+                    label="Address"
+                    variant="outlined"
+                    rows="2"
+                    auto-grow
+                  />
+                </v-col>
 
-                    <!-- Address -->
-                    <div>
-                      <label class="block text-sm font-medium text-gray-700">Address</label>
-                      <textarea
-                        v-model="form.address"
-                        rows="2"
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                        placeholder="Enter address"
-                      ></textarea>
-                    </div>
+                <!-- Active Status -->
+                <v-col cols="12">
+                  <v-checkbox
+                    v-model="form.is_active"
+                    label="Active User"
+                    color="primary"
+                  />
+                </v-col>
+              </v-row>
+            </v-container>
+          </v-card-text>
 
-                    <!-- Active Status -->
-                    <div class="flex items-center">
-                      <input
-                        v-model="form.is_active"
-                        type="checkbox"
-                        class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                      />
-                      <label class="ml-2 block text-sm text-gray-900">
-                        Active User
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+          <v-card-actions>
+            <v-spacer />
+            <v-btn
+              @click="closeModal"
+              variant="text"
+              color="grey"
+            >
+              Cancel
+            </v-btn>
+            <v-btn
+              type="submit"
+              :loading="submitting"
+              color="primary"
+              variant="elevated"
+            >
+              {{ editingUser ? 'Update User' : 'Create User' }}
+            </v-btn>
+          </v-card-actions>
+        </v-form>
+      </v-card>
+    </v-dialog>
 
-            <!-- Modal Actions -->
-            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-              <button
-                type="submit"
-                :disabled="submitting"
-                class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
-              >
-                <svg v-if="submitting" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                {{ submitting ? 'Saving...' : (editingUser ? 'Update User' : 'Create User') }}
-              </button>
-              <button
-                type="button"
-                @click="closeModal"
-                class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
+    <!-- Snackbar for notifications -->
+    <v-snackbar
+      v-model="snackbar.show"
+      :color="snackbar.color"
+      :timeout="4000"
+      location="top right"
+    >
+      {{ snackbar.message }}
+      <template #actions>
+        <v-btn
+          variant="text"
+          @click="snackbar.show = false"
+        >
+          Close
+        </v-btn>
+      </template>
+    </v-snackbar>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
-import { debounce } from 'lodash';
+import { ref, reactive, onMounted, computed } from 'vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import axios from 'axios';
+
+// Simple debounce function to avoid lodash dependency
+function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
+  let timeout: number;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+}
 
 interface User {
   id: number;
@@ -431,6 +402,12 @@ const showCreateDialog = ref(false);
 const editingUser = ref<User | null>(null);
 const submitting = ref(false);
 
+const snackbar = reactive({
+  show: false,
+  message: '',
+  color: 'success'
+});
+
 const filters = reactive({
   search: '',
   role: '',
@@ -449,13 +426,38 @@ const form = reactive({
   email: '',
   password: '',
   password_confirmation: '',
-  role_id: '',
+  role_id: null as number | null,
   organization: '',
   position: '',
   phone: '',
   address: '',
   is_active: true,
 });
+
+// Computed properties for Vuetify select options
+const roleOptions = computed(() => [
+  { title: 'All Roles', value: '' },
+  ...roles.value.map(role => ({ title: role.display_name, value: role.name }))
+]);
+
+const statusOptions = computed(() => [
+  { title: 'All Status', value: '' },
+  { title: 'Active', value: 'active' },
+  { title: 'Inactive', value: 'inactive' }
+]);
+
+const roleSelectOptions = computed(() =>
+  roles.value.map(role => ({ title: role.display_name, value: role.id }))
+);
+
+const passwordConfirmationRules = computed(() => [
+  (v: string) => {
+    if (!editingUser.value && !form.password) return true; // Not required if editing and no password
+    if (!editingUser.value && !v) return 'Password confirmation is required';
+    if (v !== form.password) return 'Passwords do not match';
+    return true;
+  }
+]);
 
 const fetchUsers = async (page = 1) => {
   loading.value = true;
@@ -493,6 +495,12 @@ const debouncedSearch = debounce(() => {
   fetchUsers(1);
 }, 300);
 
+const showNotification = (message: string, color: string = 'success') => {
+  snackbar.message = message;
+  snackbar.color = color;
+  snackbar.show = true;
+};
+
 const clearFilters = () => {
   filters.search = '';
   filters.role = '';
@@ -511,7 +519,7 @@ const resetForm = () => {
   form.email = '';
   form.password = '';
   form.password_confirmation = '';
-  form.role_id = '';
+  form.role_id = null;
   form.organization = '';
   form.position = '';
   form.phone = '';
@@ -531,7 +539,7 @@ const editUser = (user: User) => {
   form.email = user.email;
   form.password = '';
   form.password_confirmation = '';
-  form.role_id = user.role?.id.toString() || '';
+  form.role_id = user.role?.id || null;
   form.organization = user.organization || '';
   form.position = user.position || '';
   form.phone = user.phone || '';
@@ -560,7 +568,7 @@ const submitForm = async () => {
         users.value[index] = updatedUser;
       }
 
-      alert('User updated successfully!');
+      showNotification('User updated successfully!');
     } else {
       // Create new user
       const response = await axios.post('/api/users', form);
@@ -570,7 +578,7 @@ const submitForm = async () => {
       users.value.unshift(newUser);
       meta.total++;
 
-      alert('User created successfully!');
+      showNotification('User created successfully!');
     }
 
     closeModal();
@@ -578,9 +586,9 @@ const submitForm = async () => {
     console.error('Error saving user:', error);
     if (error.response?.data?.errors) {
       const errors = Object.values(error.response.data.errors).flat();
-      alert('Validation errors:\n' + errors.join('\n'));
+      showNotification('Validation errors: ' + errors.join(', '), 'error');
     } else {
-      alert('Error saving user. Please try again.');
+      showNotification('Error saving user. Please try again.', 'error');
     }
   } finally {
     submitting.value = false;
@@ -593,7 +601,7 @@ const toggleUserStatus = async (user: User) => {
     user.is_active = !user.is_active;
   } catch (error) {
     console.error('Error toggling user status:', error);
-    alert('Error updating user status');
+    showNotification('Error updating user status', 'error');
   }
 };
 
@@ -601,10 +609,11 @@ const deleteUser = async (user: User) => {
   if (confirm(`Are you sure you want to delete ${user.name}?`)) {
     try {
       await axios.delete(`/api/users/${user.id}`);
+      showNotification('User deleted successfully!');
       fetchUsers(meta.current_page);
     } catch (error) {
       console.error('Error deleting user:', error);
-      alert('Error deleting user');
+      showNotification('Error deleting user', 'error');
     }
   }
 };

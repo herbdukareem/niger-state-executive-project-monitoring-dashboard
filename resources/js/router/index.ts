@@ -12,6 +12,7 @@ import ProjectsEdit from '@/pages/Projects/Edit.vue'
 import ProjectsCreateUpdate from '@/pages/Projects/CreateUpdate.vue'
 import Locations from '@/pages/Locations.vue'
 import UsersIndex from '@/pages/Users/Index.vue'
+import RolesIndex from '@/pages/Roles/Index.vue'
 import Login from '@/pages/auth/Login.vue'
 
 const routes: RouteRecordRaw[] = [
@@ -79,6 +80,12 @@ const routes: RouteRecordRaw[] = [
     name: 'users.index',
     component: UsersIndex,
     meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/roles',
+    name: 'roles.index',
+    component: RolesIndex,
+    meta: { requiresAuth: true, requiresAdmin: true }
   }
 ]
 
@@ -99,6 +106,7 @@ router.beforeEach(async (to, from, next) => {
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
   const requiresGuest = to.matched.some(record => record.meta.requiresGuest)
   const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin)
+  const requiresSuperAdmin = to.matched.some(record => record.meta.requiresSuperAdmin)
 
   if (requiresAuth && !authStore.isAuthenticated) {
     // Redirect to login if authentication is required
@@ -108,6 +116,9 @@ router.beforeEach(async (to, from, next) => {
     next({ name: 'dashboard' })
   } else if (requiresAdmin && !authStore.isAdmin) {
     // Redirect to dashboard if admin access is required but user is not admin
+    next({ name: 'dashboard' })
+  } else if (requiresSuperAdmin && !authStore.isSuperAdmin) {
+    // Redirect to dashboard if super admin access is required but user is not super admin
     next({ name: 'dashboard' })
   } else {
     next()

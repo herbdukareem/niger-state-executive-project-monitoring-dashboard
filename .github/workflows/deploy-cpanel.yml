@@ -1,0 +1,172 @@
+name: Deploy to SmartWeb cPanel
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+        extensions: mbstring, dom, fileinfo, mysql, gd, zip, bcmath, curl, openssl, pdo, tokenizer, xml, ctype, json
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install Composer dependencies
+      run: composer install --optimize-autoloader --no-dev --no-interaction
+
+    - name: Install NPM dependencies
+      run: npm ci
+
+    - name: Generate Wayfinder Types
+      run: php artisan wayfinder:generate --with-form
+
+    - name: Build assets
+      run: npm run build
+
+    - name: Create production .env file
+      run: |
+        echo "APP_NAME=\"Niger State Project Monitoring\"" > .env.production
+        echo "APP_ENV=production" >> .env.production
+        echo "APP_KEY=${{ secrets.APP_KEY }}" >> .env.production
+        echo "APP_DEBUG=false" >> .env.production
+        echo "APP_URL=${{ secrets.APP_URL }}" >> .env.production
+        echo "" >> .env.production
+        echo "LOG_CHANNEL=stack" >> .env.production
+        echo "LOG_DEPRECATIONS_CHANNEL=null" >> .env.production
+        echo "LOG_LEVEL=error" >> .env.production
+        echo "" >> .env.production
+        echo "DB_CONNECTION=mysql" >> .env.production
+        echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env.production
+        echo "DB_PORT=${{ secrets.DB_PORT }}" >> .env.production
+        echo "DB_DATABASE=${{ secrets.DB_DATABASE }}" >> .env.production
+        echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> .env.production
+        echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env.production
+        echo "" >> .env.production
+        echo "BROADCAST_DRIVER=log" >> .env.production
+        echo "CACHE_DRIVER=file" >> .env.production
+        echo "FILESYSTEM_DISK=local" >> .env.production
+        echo "QUEUE_CONNECTION=sync" >> .env.production
+        echo "SESSION_DRIVER=file" >> .env.production
+        echo "SESSION_LIFETIME=120" >> .env.production
+        echo "" >> .env.production
+        echo "MEMCACHED_HOST=127.0.0.1" >> .env.production
+        echo "" >> .env.production
+        echo "REDIS_HOST=127.0.0.1" >> .env.production
+        echo "REDIS_PASSWORD=null" >> .env.production
+        echo "REDIS_PORT=6379" >> .env.production
+        echo "" >> .env.production
+        echo "MAIL_MAILER=smtp" >> .env.production
+        echo "MAIL_HOST=${{ secrets.MAIL_HOST }}" >> .env.production
+        echo "MAIL_PORT=${{ secrets.MAIL_PORT }}" >> .env.production
+        echo "MAIL_USERNAME=${{ secrets.MAIL_USERNAME }}" >> .env.production
+        echo "MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}" >> .env.production
+        echo "MAIL_ENCRYPTION=${{ secrets.MAIL_ENCRYPTION }}" >> .env.production
+        echo "MAIL_FROM_ADDRESS=${{ secrets.MAIL_FROM_ADDRESS }}" >> .env.production
+        echo "MAIL_FROM_NAME=\"Niger State Project Monitoring\"" >> .env.production
+
+    - name: Prepare deployment files
+      run: |
+        # Remove development files
+        rm -rf node_modules
+        rm -rf .git
+        rm -rf tests
+        rm -f .env.example
+        rm -f .gitignore
+        rm -f .gitattributes
+        rm -f phpunit.xml
+        rm -f vite.config.js
+        rm -f package.json
+        rm -f package-lock.json
+        rm -f composer.lock
+        rm -f README.md
+        
+        # Rename production env file
+        mv .env.production .env
+        
+        # Create htaccess for Laravel in public folder
+        echo "Options -MultiViews -Indexes" > public/.htaccess
+        echo "RewriteEngine On" >> public/.htaccess
+        echo "" >> public/.htaccess
+        echo "# Handle Angular and Vue.js History API" >> public/.htaccess
+        echo "RewriteCond %{REQUEST_FILENAME} !-f" >> public/.htaccess
+        echo "RewriteCond %{REQUEST_FILENAME} !-d" >> public/.htaccess
+        echo "RewriteRule ^.*$ /index.php [L]" >> public/.htaccess
+        echo "" >> public/.htaccess
+        echo "# Disable server signature" >> public/.htaccess
+        echo "ServerSignature Off" >> public/.htaccess
+        echo "" >> public/.htaccess
+        echo "# Security headers" >> public/.htaccess
+        echo "Header always set X-Content-Type-Options nosniff" >> public/.htaccess
+        echo "Header always set X-Frame-Options DENY" >> public/.htaccess
+        echo "Header always set X-XSS-Protection \"1; mode=block\"" >> public/.htaccess
+
+    - name: Deploy to SmartWeb cPanel via FTP
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+      with:
+        server: ${{ secrets.CPANEL_FTP_HOST }}
+        username: ${{ secrets.CPANEL_FTP_USERNAME }}
+        password: ${{ secrets.CPANEL_FTP_PASSWORD }}
+        local-dir: ./
+        server-dir: ${{ secrets.CPANEL_SERVER_DIR }}
+        exclude: |
+          **/.git*
+          **/.git*/**
+          **/node_modules/**
+          **/tests/**
+          **/.github/**
+
+    - name: Execute post-deployment commands
+      uses: appleboy/ssh-action@v1.0.0
+      if: ${{ secrets.SSH_ENABLED == 'true' }}
+      with:
+        host: ${{ secrets.CPANEL_SSH_HOST }}
+        username: ${{ secrets.CPANEL_SSH_USERNAME }}
+        password: ${{ secrets.CPANEL_SSH_PASSWORD }}
+        port: ${{ secrets.CPANEL_SSH_PORT }}
+        script: |
+          cd ${{ secrets.CPANEL_DEPLOYMENT_PATH }}
+          
+          # Set proper permissions
+          find . -type f -exec chmod 644 {} \;
+          find . -type d -exec chmod 755 {} \;
+          chmod -R 777 storage
+          chmod -R 777 bootstrap/cache
+          
+          # Clear Laravel caches
+          php artisan config:clear
+          php artisan cache:clear
+          php artisan route:clear
+          php artisan view:clear
+          
+          # Run migrations
+          php artisan migrate --force
+          
+          # Cache for production
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
+          
+          echo "✅ Deployment completed successfully!"
+
+    - name: Deployment notification
+      if: always()
+      run: |
+        if [ ${{ job.status }} == 'success' ]; then
+          echo "🚀 Successfully deployed to SmartWeb cPanel!"
+          echo "🌐 Your application should be live at: ${{ secrets.APP_URL }}"
+        else
+          echo "❌ Deployment failed. Please check the logs."
+        fi

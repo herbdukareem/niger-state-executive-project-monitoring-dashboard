@@ -19,8 +19,12 @@ export const useAuthStore = defineStore('auth', () => {
   const loading = ref(false);
 
   const isAuthenticated = computed(() => !!token.value && !!user.value);
-  const isAdmin = computed(() => user.value?.role === 'admin' || user.value?.role === 'super_admin');
+  const isAdmin = computed(() => {
+    const role = user.value?.role;
+    return role === 'admin' || role === 'super_admin' || role === 'governor';
+  });
   const isSuperAdmin = computed(() => user.value?.role === 'super_admin');
+  const isGovernor = computed(() => user.value?.role === 'governor');
 
   // Set up axios interceptor for authentication
   const setupAxiosInterceptors = () => {
@@ -102,7 +106,7 @@ export const useAuthStore = defineStore('auth', () => {
     if (!token.value) return false;
 
     try {
-      const response = await axios.get('/api/user');
+      const response = await axios.get('/api/auth/user');
       user.value = response.data;
       return true;
     } catch (error) {
@@ -157,6 +161,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     isAdmin,
     isSuperAdmin,
+    isGovernor,
     login,
     logout,
     register,

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Project;
+use App\Models\WorkPlanActivity;
 use App\Models\Lga;
 use App\Models\Ward;
 use Illuminate\Http\JsonResponse;
@@ -28,8 +29,8 @@ class DashboardController extends Controller
         $totalExpenditure = Project::sum('cumulative_expenditure');
         $budgetUtilization = $totalBudget > 0 ? ($totalExpenditure / $totalBudget) * 100 : 0;
 
-        // Progress stats
-        $averageProgress = Project::avg('progress_percentage') ?? 0;
+        // Progress stats (calculated from work plan activities)
+        $averageProgress = $this->calculateAverageProgressFromWorkPlan();
 
         // LGA stats
         $lgaStats = Lga::withCount('projects')
@@ -123,6 +124,15 @@ class DashboardController extends Controller
             'completion_rate' => $totalProjects > 0 ? ($completedProjects / $totalProjects) * 100 : 0,
         ];
 
+        // Work plan based metrics
+        $workPlanMetrics = $this->getWorkPlanMetrics();
+
+        // Monthly completion trends
+        $monthlyTrends = $this->getMonthlyCompletionTrends();
+
+        // Department performance (by sector)
+        $departmentPerformance = $this->getDepartmentPerformance();
+
         return response()->json([
             'overview' => [
                 'total_projects' => $totalProjects,
@@ -134,6 +144,9 @@ class DashboardController extends Controller
                 'budget_utilization' => round($budgetUtilization, 1),
                 'average_progress' => round($averageProgress, 1),
             ],
+            'work_plan_metrics' => $workPlanMetrics,
+            'monthly_trends' => $monthlyTrends,
+            'department_performance' => $departmentPerformance,
             'lga_stats' => $lgaStats,
             'zone_stats' => $zoneStats,
             'status_stats' => $statusStats,
@@ -172,5 +185,140 @@ class DashboardController extends Controller
             'cancelled' => 'red',
             default => 'gray',
         };
+    }
+
+    /**
+     * Calculate average progress from work plan activities
+     */
+    private function calculateAverageProgressFromWorkPlan(): float
+    {
+        $projects = Project::with('workPlanActivities')->get();
+        $totalProgress = 0;
+        $projectCount = 0;
+
+        foreach ($projects as $project) {
+            if ($project->workPlanActivities->count() > 0) {
+                $activityProgress = $project->workPlanActivities->avg('progress_percentage') ?? 0;
+                $totalProgress += $activityProgress;
+                $projectCount++;
+            }
+        }
+
+        return $projectCount > 0 ? $totalProgress / $projectCount : 0;
+    }
+
+    /**
+     * Get work plan based metrics
+     */
+    private function getWorkPlanMetrics(): array
+    {
+        $totalActivities = WorkPlanActivity::count();
+        $completedActivities = WorkPlanActivity::where('status', 'completed')->count();
+        $inProgressActivities = WorkPlanActivity::whereIn('status', ['in_progress', 'on_track'])->count();
+        $delayedActivities = WorkPlanActivity::where('status', 'delayed')->count();
+        $overdueActivities = WorkPlanActivity::where('planned_end_date', '<', now())
+            ->where('status', '!=', 'completed')->count();
+
+        // Calculate overall progress by category
+        $categoryProgress = WorkPlanActivity::select('category',
+                DB::raw('AVG(progress_percentage) as avg_progress'),
+                DB::raw('COUNT(*) as total_activities'),
+                DB::raw('SUM(CASE WHEN status = "completed" THEN 1 ELSE 0 END) as completed_activities'))
+            ->whereNotNull('category')
+            ->groupBy('category')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'category' => $item->category,
+                    'progress_percentage' => round($item->avg_progress, 1),
+                    'total_activities' => $item->total_activities,
+                    'completed_activities' => $item->completed_activities,
+                    'completion_rate' => $item->total_activities > 0 ?
+                        round(($item->completed_activities / $item->total_activities) * 100, 1) : 0
+                ];
+            });
+
+        return [
+            'total_activities' => $totalActivities,
+            'completed_activities' => $completedActivities,
+            'in_progress_activities' => $inProgressActivities,
+            'delayed_activities' => $delayedActivities,
+            'overdue_activities' => $overdueActivities,
+            'completion_rate' => $totalActivities > 0 ? round(($completedActivities / $totalActivities) * 100, 1) : 0,
+            'category_progress' => $categoryProgress
+        ];
+    }
+
+    /**
+     * Get monthly completion trends
+     */
+    private function getMonthlyCompletionTrends(): array
+    {
+        $trends = [];
+
+        // Get last 6 months of data
+        for ($i = 5; $i >= 0; $i--) {
+            $date = now()->subMonths($i);
+            $monthStart = $date->copy()->startOfMonth();
+            $monthEnd = $date->copy()->endOfMonth();
+
+            $completedActivities = WorkPlanActivity::where('status', 'completed')
+                ->whereBetween('actual_end_date', [$monthStart, $monthEnd])
+                ->count();
+
+            $totalActivities = WorkPlanActivity::where('planned_end_date', '<=', $monthEnd)
+                ->count();
+
+            $trends[] = [
+                'month' => $date->format('M'),
+                'year' => $date->format('Y'),
+                'completed_activities' => $completedActivities,
+                'total_activities' => $totalActivities,
+                'completion_rate' => $totalActivities > 0 ? round(($completedActivities / $totalActivities) * 100, 1) : 0
+            ];
+        }
+
+        return $trends;
+    }
+
+    /**
+     * Get department performance by sector
+     */
+    private function getDepartmentPerformance(): array
+    {
+        return Project::select('sector',
+                DB::raw('COUNT(*) as total_projects'),
+                DB::raw('AVG(progress_percentage) as avg_progress'),
+                DB::raw('SUM(total_budget) as total_budget'),
+                DB::raw('SUM(cumulative_expenditure) as total_expenditure'))
+            ->groupBy('sector')
+            ->get()
+            ->map(function ($item) {
+                // Get work plan activities for this sector
+                $sectorProjects = Project::where('sector', $item->sector)->pluck('id');
+                $sectorActivities = WorkPlanActivity::whereIn('project_id', $sectorProjects);
+
+                $totalActivities = $sectorActivities->count();
+                $completedActivities = $sectorActivities->where('status', 'completed')->count();
+                $avgActivityProgress = $sectorActivities->avg('progress_percentage') ?? 0;
+
+                return [
+                    'sector' => $item->sector,
+                    'total_projects' => $item->total_projects,
+                    'avg_progress' => round($item->avg_progress, 1),
+                    'total_budget' => $item->total_budget,
+                    'total_expenditure' => $item->total_expenditure,
+                    'budget_utilization' => $item->total_budget > 0 ?
+                        round(($item->total_expenditure / $item->total_budget) * 100, 1) : 0,
+                    'total_activities' => $totalActivities,
+                    'completed_activities' => $completedActivities,
+                    'activity_completion_rate' => $totalActivities > 0 ?
+                        round(($completedActivities / $totalActivities) * 100, 1) : 0,
+                    'avg_activity_progress' => round($avgActivityProgress, 1)
+                ];
+            })
+            ->sortByDesc('total_projects')
+            ->values()
+            ->toArray();
     }
 }

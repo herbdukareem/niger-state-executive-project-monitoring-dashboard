@@ -48,7 +48,7 @@
       </div>
 
       <!-- Budget values for budget utilization -->
-      <div v-if="showBudgetValues" class="budget-values">
+      <div v-if="showBudgetValues && hasBudgetData" class="budget-values">
         <span class="budget-used">{{ formatCurrency(budgetUsed) }}</span>
         <span class="budget-separator">/</span>
         <span class="budget-total">{{ formatCurrency(budgetTotal) }}</span>
@@ -74,8 +74,8 @@ interface Props {
   rounded?: boolean;
   animate?: boolean;
   duration?: number;
-  budgetUsed?: number;
-  budgetTotal?: number;
+  budgetUsed?: number | undefined;
+  budgetTotal?: number | undefined;
   showBudgetValues?: boolean;
 }
 
@@ -114,6 +114,17 @@ const progressWidth = computed(() => {
   return Math.min((safeProgress / props.max) * 100, 100);
 });
 
+// Check if budget data is valid
+const hasBudgetData = computed(() => {
+  return typeof props.budgetUsed === 'number' &&
+         !isNaN(props.budgetUsed) &&
+         isFinite(props.budgetUsed) &&
+         typeof props.budgetTotal === 'number' &&
+         !isNaN(props.budgetTotal) &&
+         isFinite(props.budgetTotal) &&
+         props.budgetTotal > 0;
+});
+
 const displayValue = computed(() => {
   if (!isValidData.value) return '0%';
   const currentValue = props.animate ? animatedProgress.value : props.value;
@@ -124,15 +135,23 @@ const displayValue = computed(() => {
   return Math.round(safeValue).toString();
 });
 
-const formatCurrency = (amount: number) => {
-  if (amount >= 1000000000) {
-    return '₦' + (amount / 1000000000).toFixed(1) + 'B';
-  } else if (amount >= 1000000) {
-    return '₦' + (amount / 1000000).toFixed(0) + 'M';
-  } else if (amount >= 1000) {
-    return '₦' + (amount / 1000).toFixed(0) + 'K';
+const formatCurrency = (amount: number | undefined) => {
+  // Handle undefined, null, NaN, or invalid values
+  if (amount === undefined || amount === null || isNaN(amount) || !isFinite(amount)) {
+    return '₦0';
   }
-  return '₦' + amount.toLocaleString();
+
+  // Ensure amount is a positive number
+  const safeAmount = Math.max(0, amount);
+
+  if (safeAmount >= 1000000000) {
+    return '₦' + (safeAmount / 1000000000).toFixed(1) + 'B';
+  } else if (safeAmount >= 1000000) {
+    return '₦' + (safeAmount / 1000000).toFixed(0) + 'M';
+  } else if (safeAmount >= 1000) {
+    return '₦' + (safeAmount / 1000).toFixed(0) + 'K';
+  }
+  return '₦' + safeAmount.toLocaleString();
 };
 
 const animateProgress = () => {

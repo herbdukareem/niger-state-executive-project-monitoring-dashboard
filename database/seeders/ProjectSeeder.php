@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Project;
 use App\Models\ProjectUpdate;
 use App\Models\User;
+use App\Models\Role;
 use App\Models\WorkPlanActivity;
 use App\Models\OutputIndicator;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
@@ -17,33 +18,44 @@ class ProjectSeeder extends Seeder
      */
     public function run(): void
     {
-        // Create sample users with different roles
-        $admin = User::create([
-            'name' => 'Admin User',
-            'email' => 'admin@example.com',
-            'password' => bcrypt('password'),
-            'role' => 'admin',
-            'organization' => 'Government Agency',
-            'position' => 'Administrator',
-        ]);
+        // Get roles
+        $adminRole = Role::where('name', 'admin')->first();
+        $projectManagerRole = Role::where('name', 'project_manager')->first();
+        $officerRole = Role::where('name', 'monitoring_and_evaluation_officers')->first();
 
-        $projectManager = User::create([
-            'name' => 'John Manager',
-            'email' => 'manager@example.com',
-            'password' => bcrypt('password'),
-            'role' => 'project_manager',
-            'organization' => 'Development Agency',
-            'position' => 'Project Manager',
-        ]);
+        // Get or create sample users with different roles
+        $admin = User::firstOrCreate(
+            ['email' => 'admin@example.com'],
+            [
+                'name' => 'Admin User',
+                'password' => bcrypt('password'),
+                'role_id' => $adminRole?->id,
+                'organization' => 'Government Agency',
+                'position' => 'Administrator',
+            ]
+        );
 
-        $officer = User::create([
-            'name' => 'Jane Officer',
-            'email' => 'officer@example.com',
-            'password' => bcrypt('password'),
-            'role' => 'officer',
-            'organization' => 'Field Office',
-            'position' => 'Field Officer',
-        ]);
+        $projectManager = User::firstOrCreate(
+            ['email' => 'manager@example.com'],
+            [
+                'name' => 'John Manager',
+                'password' => bcrypt('password'),
+                'role_id' => $projectManagerRole?->id,
+                'organization' => 'Development Agency',
+                'position' => 'Project Manager',
+            ]
+        );
+
+        $officer = User::firstOrCreate(
+            ['email' => 'officer@example.com'],
+            [
+                'name' => 'Jane Officer',
+                'password' => bcrypt('password'),
+                'role_id' => $officerRole?->id,
+                'organization' => 'Field Office',
+                'position' => 'Field Officer',
+            ]
+        );
 
         // Create sample projects
         $projects = [
@@ -116,7 +128,10 @@ class ProjectSeeder extends Seeder
         ];
 
         foreach ($projects as $projectData) {
-            $project = Project::create($projectData);
+            $project = Project::firstOrCreate(
+                ['id_code' => $projectData['id_code']],
+                $projectData
+            );
 
             // Create sample work plan activities
             $activities = [

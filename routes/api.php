@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\ProjectAttachmentController;
 use App\Http\Controllers\Api\WorkPlanActivityController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\RoleController;
+use App\Http\Controllers\Api\PermissionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -78,7 +80,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/form-data/project-managers', function () {
         return response()->json([
-            'data' => \App\Models\User::where('role', 'project_manager')
+            'data' => \App\Models\User::whereHas('role', function ($query) {
+                    $query->where('name', 'project_manager');
+                })
+                ->where('is_active', true)
                 ->select('id', 'name', 'email')
                 ->orderBy('name')
                 ->get()
@@ -87,11 +92,28 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 // User Management API routes (Protected by permissions)
-Route::middleware(['auth:sanctum'])->group(function () {
+Route::middleware(['auth:sanctum', 'role:governor,super_admin,admin'])->group(function () {
     // User management routes - only for super admins and admins
     Route::get('/users/roles', [UserController::class, 'getRoles']);
     Route::apiResource('users', UserController::class);
     Route::patch('/users/{user}/toggle-status', [UserController::class, 'toggleStatus']);
+});
+
+// Role and Permission Management API routes (Protected by permissions)
+Route::middleware(['auth:sanctum', 'role:governor,super_admin,admin'])->group(function () {
+    // Role management routes - only for governor, super admins, and admins
+    Route::get('/roles/permissions', [RoleController::class, 'getPermissions']);
+    Route::apiResource('roles', RoleController::class);
+    Route::patch('/roles/{role}/toggle-status', [RoleController::class, 'toggleStatus']);
+    Route::post('/roles/{role}/assign-permission', [RoleController::class, 'assignPermission']);
+    Route::post('/roles/{role}/revoke-permission', [RoleController::class, 'revokePermission']);
+    Route::post('/roles/{role}/sync-permissions', [RoleController::class, 'syncPermissions']);
+
+    // Permission management routes - only for governor, super admins, and admins
+    Route::get('/permissions/categories', [PermissionController::class, 'getCategories']);
+    Route::get('/permissions/grouped', [PermissionController::class, 'getGroupedPermissions']);
+    Route::apiResource('permissions', PermissionController::class);
+    Route::patch('/permissions/{permission}/toggle-status', [PermissionController::class, 'toggleStatus']);
 });
 
 // Test route for debugging (public)
