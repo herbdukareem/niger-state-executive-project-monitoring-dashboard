@@ -8,7 +8,6 @@ use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
 Route::middleware('guest')->group(function () {
     Route::get('register', [RegisteredUserController::class, 'create'])
@@ -34,6 +33,10 @@ Route::middleware('guest')->group(function () {
 
     Route::post('reset-password', [NewPasswordController::class, 'store'])
         ->name('password.store');
+
+    Route::get('two-factor-challenge', function () {
+        return view('app');
+    })->name('two-factor.login');
 });
 
 Route::middleware('auth')->group(function () {
@@ -49,7 +52,7 @@ Route::middleware('auth')->group(function () {
         ->name('verification.send');
 
     Route::get('confirm-password', function () {
-        return Inertia::render('auth/ConfirmPassword');
+        return view('app');
     })->name('password.confirm');
 
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
