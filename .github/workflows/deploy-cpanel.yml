@@ -89,10 +89,14 @@ jobs:
         host: ${{ secrets.CPANEL_SSH_HOST }}
         port: ${{ secrets.CPANEL_SSH_PORT }}
         user: ${{ secrets.CPANEL_SSH_USERNAME }}
-        password: ${{ secrets.CPANEL_SSH_PASSWORD }}
+        pass: ${{ secrets.CPANEL_SSH_PASSWORD }}
         localDir: './'
         remoteDir: ${{ secrets.CPANEL_SERVER_DIR }}
-        mirrorArgs: '--reverse --delete --verbose --exclude-glob .git* --exclude-glob node_modules'
+        onlyNewer: true                                   # Optional but recommended
+        reverse: true                                    # Mirrors local to remote
+        parallel: 2 
+        remoteDir: ${{ secrets.CPANEL_SERVER_DIR }}
+        options: '--exclude-glob .git* --exclude-glob node_modules' 
 
     - name: Execute post-deployment commands via SSH
       uses: appleboy/ssh-action@v1.0.0
