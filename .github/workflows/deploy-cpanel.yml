@@ -4,6 +4,11 @@ on:
   push:
     branches: [ main ]
 
+# Prevent multiple deployments from running simultaneously
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -82,11 +87,9 @@ jobs:
         # Remove development files
         rm -rf node_modules
         rm -rf .git
-        rm -rf tests
         rm -f .env.example
         rm -f .gitignore
         rm -f .gitattributes
-        rm -f phpunit.xml
         rm -f vite.config.js
         rm -f package.json
         rm -f package-lock.json
@@ -125,7 +128,6 @@ jobs:
           **/.git*
           **/.git*/**
           **/node_modules/**
-          **/tests/**
           **/.github/**
 
     - name: Execute post-deployment commands
