@@ -94,23 +94,21 @@ jobs:
         mv .env.production .env
         
         # Create htaccess for Laravel in public folder
-        cat <<EOF > public/.htaccess
-Options -MultiViews -Indexes
-RewriteEngine On
-
-# Handle Angular and Vue.js History API
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^.*$ /index.php [L]
-
-# Disable server signature
-ServerSignature Off
-
-# Security headers
-Header always set X-Content-Type-Options nosniff
-Header always set X-Frame-Options DENY
-Header always set X-XSS-Protection "1; mode=block"
-EOF
+        echo "Options -MultiViews -Indexes" > public/.htaccess
+        echo "RewriteEngine On" >> public/.htaccess
+        echo "" >> public/.htaccess
+        echo "# Handle Angular and Vue.js History API" >> public/.htaccess
+        echo "RewriteCond %{REQUEST_FILENAME} !-f" >> public/.htaccess
+        echo "RewriteCond %{REQUEST_FILENAME} !-d" >> public/.htaccess
+        echo "RewriteRule ^.*$ /index.php [L]" >> public/.htaccess
+        echo "" >> public/.htaccess
+        echo "# Disable server signature" >> public/.htaccess
+        echo "ServerSignature Off" >> public/.htaccess
+        echo "" >> public/.htaccess
+        echo "# Security headers" >> public/.htaccess
+        echo "Header always set X-Content-Type-Options nosniff" >> public/.htaccess
+        echo "Header always set X-Frame-Options DENY" >> public/.htaccess
+        echo "Header always set X-XSS-Protection \"1; mode=block\"" >> public/.htaccess
 
     - name: Deploy to SmartWeb cPanel via FTP
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
