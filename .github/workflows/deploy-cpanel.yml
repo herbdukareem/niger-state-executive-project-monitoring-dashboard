@@ -67,6 +67,12 @@ jobs:
         echo "MAIL_ENCRYPTION=${{ secrets.MAIL_ENCRYPTION }}" >> .env.production
         echo "MAIL_FROM_ADDRESS=${{ secrets.MAIL_FROM_ADDRESS }}" >> .env.production
         echo "MAIL_FROM_NAME=\"Niger State Project Monitoring\"" >> .env.production
+        echo "" >> .env.production
+        echo "SESSION_DRIVER=database" >> .env.production
+        echo "SESSION_LIFETIME=120" >> .env.production
+        echo "SESSION_ENCRYPT=false" >> .env.production
+        echo "SESSION_PATH=/" >> .env.production
+        echo "SESSION_DOMAIN=null" >> .env.production
 
     - name: Prepare deployment files
       run: |
