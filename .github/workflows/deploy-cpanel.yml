@@ -4,7 +4,6 @@ on:
   push:
     branches: [ main ]
 
-# Prevent multiple deployments from running simultaneously
 concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: true
@@ -60,19 +59,6 @@ jobs:
         echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> .env.production
         echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env.production
         echo "" >> .env.production
-        echo "BROADCAST_DRIVER=log" >> .env.production
-        echo "CACHE_DRIVER=file" >> .env.production
-        echo "FILESYSTEM_DISK=local" >> .env.production
-        echo "QUEUE_CONNECTION=sync" >> .env.production
-        echo "SESSION_DRIVER=file" >> .env.production
-        echo "SESSION_LIFETIME=120" >> .env.production
-        echo "" >> .env.production
-        echo "MEMCACHED_HOST=127.0.0.1" >> .env.production
-        echo "" >> .env.production
-        echo "REDIS_HOST=127.0.0.1" >> .env.production
-        echo "REDIS_PASSWORD=null" >> .env.production
-        echo "REDIS_PORT=6379" >> .env.production
-        echo "" >> .env.production
         echo "MAIL_MAILER=smtp" >> .env.production
         echo "MAIL_HOST=${{ secrets.MAIL_HOST }}" >> .env.production
         echo "MAIL_PORT=${{ secrets.MAIL_PORT }}" >> .env.production
@@ -84,50 +70,31 @@ jobs:
 
     - name: Prepare deployment files
       run: |
-        # Remove development files
-        rm -rf node_modules
-        rm -rf .git
-        rm -f .env.example .gitignore .gitattributes vite.config.js
+        rm -rf node_modules .git .env.example .gitignore .gitattributes vite.config.js
         rm -f package.json package-lock.json composer.lock README.md
-        
-        # Rename production env file
         mv .env.production .env
-        
-        # Create htaccess for Laravel in public folder
         echo "Options -MultiViews -Indexes" > public/.htaccess
         echo "RewriteEngine On" >> public/.htaccess
-        echo "" >> public/.htaccess
-        echo "# Handle Angular and Vue.js History API" >> public/.htaccess
         echo "RewriteCond %{REQUEST_FILENAME} !-f" >> public/.htaccess
         echo "RewriteCond %{REQUEST_FILENAME} !-d" >> public/.htaccess
         echo "RewriteRule ^.*$ /index.php [L]" >> public/.htaccess
-        echo "" >> public/.htaccess
-        echo "# Disable server signature" >> public/.htaccess
         echo "ServerSignature Off" >> public/.htaccess
-        echo "" >> public/.htaccess
-        echo "# Security headers" >> public/.htaccess
         echo "Header always set X-Content-Type-Options nosniff" >> public/.htaccess
         echo "Header always set X-Frame-Options DENY" >> public/.htaccess
         echo "Header always set X-XSS-Protection \"1; mode=block\"" >> public/.htaccess
 
-    - name: Deploy to SmartWeb cPanel via FTP
-      uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+    - name: Upload via SFTP
+      uses: pressidium/lftp-mirror-action@v1
       with:
-        server: ${{ secrets.CPANEL_FTP_HOST }}
-        username: ${{ secrets.CPANEL_FTP_USERNAME }}
-        password: ${{ secrets.CPANEL_FTP_PASSWORD }}
-        local-dir: ./ 
-        server-dir: ${{ secrets.CPANEL_SERVER_DIR }}
-        exclude: |
-          **/.git*
-          **/.git*/**
-          **/node_modules/**
-          **/.github/**
+        host: ${{ secrets.CPANEL_SSH_HOST }}
+        port: ${{ secrets.CPANEL_SSH_PORT }}
+        user: ${{ secrets.CPANEL_SSH_USERNAME }}
+        password: ${{ secrets.CPANEL_SSH_PASSWORD }}
+        localDir: './'
+        remoteDir: ${{ secrets.CPANEL_SERVER_DIR }}
+        mirrorArgs: '--reverse --delete --verbose --exclude-glob .git* --exclude-glob node_modules'
 
-    - name: Execute post-deployment commands
-      if: env.SSH_ENABLED == 'true'
-      env:
-        SSH_ENABLED: ${{ secrets.SSH_ENABLED }}
+    - name: Execute post-deployment commands via SSH
       uses: appleboy/ssh-action@v1.0.0
       with:
         host: ${{ secrets.CPANEL_SSH_HOST }}
@@ -136,35 +103,24 @@ jobs:
         port: ${{ secrets.CPANEL_SSH_PORT }}
         script: |
           cd ${{ secrets.CPANEL_DEPLOYMENT_PATH }}
-
-          # Set proper permissions
           find . -type f -exec chmod 644 {} \;
           find . -type d -exec chmod 755 {} \;
-          chmod -R 777 storage
-          chmod -R 777 bootstrap/cache
-
-          # Clear Laravel caches
+          chmod -R 777 storage bootstrap/cache
           php artisan config:clear
           php artisan cache:clear
           php artisan route:clear
           php artisan view:clear
-
-          # Run migrations
           php artisan migrate --force
-
-          # Cache for production
           php artisan config:cache
           php artisan route:cache
           php artisan view:cache
+          echo "✅ Deployment complete!"
 
-          echo "✅ Deployment completed successfully!"
-
-    - name: Deployment notification
+    - name: Notify deployment status
       if: always()
       run: |
         if [ "${{ job.status }}" == "success" ]; then
-          echo "🚀 Successfully deployed to SmartWeb cPanel!"
-          echo "🌐 Your application should be live at: ${{ secrets.APP_URL }}"
+          echo "🚀 Deployed to SmartWeb successfully!"
         else
-          echo "❌ Deployment failed. Please check the logs."
+          echo "❌ Deployment failed. Check logs."
         fi
