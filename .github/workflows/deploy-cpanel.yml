@@ -95,7 +95,6 @@ jobs:
         onlyNewer: true                                   # Optional but recommended
         reverse: true                                    # Mirrors local to remote
         parallel: 2 
-        remoteDir: ${{ secrets.CPANEL_SERVER_DIR }}
         options: '--exclude-glob .git* --exclude-glob node_modules' 
 
     - name: Execute post-deployment commands via SSH
