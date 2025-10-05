@@ -132,7 +132,7 @@ jobs:
 
     - name: Execute post-deployment commands
       uses: appleboy/ssh-action@v1.0.0
-      if: ${{ secrets.SSH_ENABLED == 'true' }}
+      if: secrets.SSH_ENABLED == 'true'
       with:
         host: ${{ secrets.CPANEL_SSH_HOST }}
         username: ${{ secrets.CPANEL_SSH_USERNAME }}
