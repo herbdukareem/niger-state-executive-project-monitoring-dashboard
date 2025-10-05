@@ -12,7 +12,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -87,34 +87,30 @@ jobs:
         # Remove development files
         rm -rf node_modules
         rm -rf .git
-        rm -f .env.example
-        rm -f .gitignore
-        rm -f .gitattributes
-        rm -f vite.config.js
-        rm -f package.json
-        rm -f package-lock.json
-        rm -f composer.lock
-        rm -f README.md
+        rm -f .env.example .gitignore .gitattributes vite.config.js
+        rm -f package.json package-lock.json composer.lock README.md
         
         # Rename production env file
         mv .env.production .env
         
         # Create htaccess for Laravel in public folder
-        echo "Options -MultiViews -Indexes" > public/.htaccess
-        echo "RewriteEngine On" >> public/.htaccess
-        echo "" >> public/.htaccess
-        echo "# Handle Angular and Vue.js History API" >> public/.htaccess
-        echo "RewriteCond %{REQUEST_FILENAME} !-f" >> public/.htaccess
-        echo "RewriteCond %{REQUEST_FILENAME} !-d" >> public/.htaccess
-        echo "RewriteRule ^.*$ /index.php [L]" >> public/.htaccess
-        echo "" >> public/.htaccess
-        echo "# Disable server signature" >> public/.htaccess
-        echo "ServerSignature Off" >> public/.htaccess
-        echo "" >> public/.htaccess
-        echo "# Security headers" >> public/.htaccess
-        echo "Header always set X-Content-Type-Options nosniff" >> public/.htaccess
-        echo "Header always set X-Frame-Options DENY" >> public/.htaccess
-        echo "Header always set X-XSS-Protection \"1; mode=block\"" >> public/.htaccess
+        cat <<EOF > public/.htaccess
+Options -MultiViews -Indexes
+RewriteEngine On
+
+# Handle Angular and Vue.js History API
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^.*$ /index.php [L]
+
+# Disable server signature
+ServerSignature Off
+
+# Security headers
+Header always set X-Content-Type-Options nosniff
+Header always set X-Frame-Options DENY
+Header always set X-XSS-Protection "1; mode=block"
+EOF
 
     - name: Deploy to SmartWeb cPanel via FTP
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
@@ -122,7 +118,7 @@ jobs:
         server: ${{ secrets.CPANEL_FTP_HOST }}
         username: ${{ secrets.CPANEL_FTP_USERNAME }}
         password: ${{ secrets.CPANEL_FTP_PASSWORD }}
-        local-dir: ./
+        local-dir: ./ 
         server-dir: ${{ secrets.CPANEL_SERVER_DIR }}
         exclude: |
           **/.git*
@@ -131,8 +127,10 @@ jobs:
           **/.github/**
 
     - name: Execute post-deployment commands
+      if: env.SSH_ENABLED == 'true'
+      env:
+        SSH_ENABLED: ${{ secrets.SSH_ENABLED }}
       uses: appleboy/ssh-action@v1.0.0
-      if: secrets.SSH_ENABLED == 'true'
       with:
         host: ${{ secrets.CPANEL_SSH_HOST }}
         username: ${{ secrets.CPANEL_SSH_USERNAME }}
@@ -140,33 +138,33 @@ jobs:
         port: ${{ secrets.CPANEL_SSH_PORT }}
         script: |
           cd ${{ secrets.CPANEL_DEPLOYMENT_PATH }}
-          
+
           # Set proper permissions
           find . -type f -exec chmod 644 {} \;
           find . -type d -exec chmod 755 {} \;
           chmod -R 777 storage
           chmod -R 777 bootstrap/cache
-          
+
           # Clear Laravel caches
           php artisan config:clear
           php artisan cache:clear
           php artisan route:clear
           php artisan view:clear
-          
+
           # Run migrations
           php artisan migrate --force
-          
+
           # Cache for production
           php artisan config:cache
           php artisan route:cache
           php artisan view:cache
-          
+
           echo "✅ Deployment completed successfully!"
 
     - name: Deployment notification
       if: always()
       run: |
-        if [ ${{ job.status }} == 'success' ]; then
+        if [ "${{ job.status }}" == "success" ]; then
           echo "🚀 Successfully deployed to SmartWeb cPanel!"
           echo "🌐 Your application should be live at: ${{ secrets.APP_URL }}"
         else
