@@ -97,7 +97,6 @@ jobs:
         parallel: 2 
         options: '--exclude-glob .git* --exclude-glob node_modules --exclude-glob .github'
 
-
     - name: Execute post-deployment commands via SSH
       uses: appleboy/ssh-action@v1.0.0
       with:
