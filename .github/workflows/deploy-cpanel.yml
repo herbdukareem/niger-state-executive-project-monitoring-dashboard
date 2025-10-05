@@ -112,17 +112,35 @@ jobs:
         port: ${{ secrets.CPANEL_SSH_PORT }}
         script: |
           cd ${{ secrets.CPANEL_DEPLOYMENT_PATH }}
+
+          # Set proper permissions
           find . -type f -exec chmod 644 {} \;
           find . -type d -exec chmod 755 {} \;
           chmod -R 777 storage bootstrap/cache
+
+          # Clear all caches first
           php artisan config:clear
           php artisan cache:clear
           php artisan route:clear
           php artisan view:clear
-          php artisan migrate --force
+
+          # Run migrations with verbose output
+          echo "🔄 Running database migrations..."
+          php artisan migrate --force --verbose
+
+          # Check if migrations ran successfully
+          if [ $? -eq 0 ]; then
+            echo "✅ Migrations completed successfully"
+          else
+            echo "❌ Migrations failed!"
+            exit 1
+          fi
+
+          # Cache configurations for production
           php artisan config:cache
           php artisan route:cache
           php artisan view:cache
+
           echo "✅ Deployment complete!"
 
     - name: Notify deployment status
