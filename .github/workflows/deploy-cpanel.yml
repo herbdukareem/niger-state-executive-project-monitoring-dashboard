@@ -76,8 +76,9 @@ jobs:
 
     - name: Prepare deployment files
       run: |
-        rm -rf node_modules .git .env.example .gitignore .gitattributes vite.config.js
-        rm -f package.json package-lock.json composer.lock README.md
+        # Remove development files but keep built assets and production dependencies
+        rm -rf .git .env.example .gitignore .gitattributes vite.config.js
+        rm -f composer.lock README.md
         mv .env.production .env
         echo "Options -MultiViews -Indexes" > public/.htaccess
         echo "RewriteEngine On" >> public/.htaccess
@@ -101,7 +102,7 @@ jobs:
         onlyNewer: true                                   # Optional but recommended
         reverse: true                                    # Mirrors local to remote
         parallel: 2 
-        options: '--exclude-glob .git* --exclude-glob node_modules --exclude-glob .github'
+        options: '--exclude-glob .git* --exclude-glob .github'
 
     - name: Execute post-deployment commands via SSH
       uses: appleboy/ssh-action@v1.0.0
@@ -111,14 +112,31 @@ jobs:
         password: ${{ secrets.CPANEL_SSH_PASSWORD }}
         port: ${{ secrets.CPANEL_SSH_PORT }}
         script: |
+          echo "🔄 Starting post-deployment commands..."
+          echo "📁 Current directory: $(pwd)"
+          echo "📁 Changing to deployment path: ${{ secrets.CPANEL_DEPLOYMENT_PATH }}"
+
           cd ${{ secrets.CPANEL_DEPLOYMENT_PATH }}
+          echo "📁 Now in: $(pwd)"
+          echo "📋 Directory contents:"
+          ls -la
 
           # Set proper permissions
+          echo "🔧 Setting file permissions..."
           find . -type f -exec chmod 644 {} \;
           find . -type d -exec chmod 755 {} \;
           chmod -R 777 storage bootstrap/cache
 
+          # Check if artisan exists
+          if [ -f "artisan" ]; then
+            echo "✅ Laravel artisan found"
+          else
+            echo "❌ Laravel artisan not found!"
+            exit 1
+          fi
+
           # Clear all caches first
+          echo "🧹 Clearing caches..."
           php artisan config:clear
           php artisan cache:clear
           php artisan route:clear
@@ -137,6 +155,7 @@ jobs:
           fi
 
           # Cache configurations for production
+          echo "⚡ Caching configurations..."
           php artisan config:cache
           php artisan route:cache
           php artisan view:cache
