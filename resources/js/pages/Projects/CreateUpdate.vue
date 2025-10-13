@@ -265,10 +265,13 @@
                   accept="image/*"
                   prepend-icon="mdi-camera"
                   @update:model-value="handlePhotoUpload"
+                  @change="handlePhotoUpload"
                   show-size
                   chips
                   clearable
                   :rules="[v => !v || v.length <= 10 || 'Maximum 10 files allowed']"
+                  hint="Select multiple photos to upload with your update"
+                  persistent-hint
                 />
 
                 <v-alert
@@ -461,25 +464,44 @@ const fetchProject = async () => {
   }
 };
 
-const handlePhotoUpload = (files: File[] | null) => {
+const handlePhotoUpload = (files: File[] | null | Event) => {
   console.log('Photo upload triggered:', files);
 
-  // Don't clear previous selections, allow adding more photos
-  if (files && files.length > 0) {
+  // Handle both direct file array and event
+  let fileList: File[] = [];
+
+  if (files instanceof Event) {
+    const target = files.target as HTMLInputElement;
+    fileList = target.files ? Array.from(target.files) : [];
+  } else if (Array.isArray(files)) {
+    fileList = files;
+  } else if (files) {
+    fileList = [files];
+  }
+
+  console.log('Processing file list:', fileList.length, 'files');
+
+  if (fileList.length > 0) {
+    // Clear previous selections when new files are selected
+    selectedPhotos.value = [];
+
+    let processedCount = 0;
     const newPhotos: PhotoFile[] = [];
 
-    Array.from(files).forEach(file => {
-      console.log('Processing file:', file.name, file.type, file.size);
+    fileList.forEach((file, index) => {
+      console.log(`Processing file ${index}:`, file.name, file.type, file.size);
 
       // Validate file size (max 10MB)
       if (file.size > 10 * 1024 * 1024) {
         alert(`File ${file.name} is too large. Maximum size is 10MB.`);
+        processedCount++;
         return;
       }
 
       // Validate file type
       if (!file.type.startsWith('image/')) {
         alert(`File ${file.name} is not an image. Please select only image files.`);
+        processedCount++;
         return;
       }
 
@@ -491,15 +513,24 @@ const handlePhotoUpload = (files: File[] | null) => {
           description: ''
         };
 
-        // Add to new photos array
         newPhotos.push(photoFile);
+        processedCount++;
 
         // Update selected photos when all files are processed
-        if (newPhotos.length === files.length) {
-          selectedPhotos.value = [...selectedPhotos.value, ...newPhotos];
+        if (processedCount === fileList.length) {
+          selectedPhotos.value = newPhotos;
           console.log('All photos processed. Total photos:', selectedPhotos.value.length);
         }
       };
+
+      reader.onerror = () => {
+        console.error('Error reading file:', file.name);
+        processedCount++;
+        if (processedCount === fileList.length) {
+          selectedPhotos.value = newPhotos;
+        }
+      };
+
       reader.readAsDataURL(file);
     });
   } else {

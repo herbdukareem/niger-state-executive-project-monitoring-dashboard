@@ -12,8 +12,8 @@ import * as components from 'vuetify/components';
 import * as directives from 'vuetify/directives';
 import '@mdi/font/css/materialdesignicons.css';
 
-// Animate.css - using CDN approach for better compatibility
-// import 'animate.css/animate.min.css';
+// Animate.css for animations
+import 'animate.css/animate.min.css';
 
 const vuetify = createVuetify({
   components,

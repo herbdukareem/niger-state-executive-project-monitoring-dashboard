@@ -42,14 +42,23 @@ function runCommand($command, $description) {
     return true;
 }
 
-echo "Step 1: Resetting migrations to fix dependency issues...\n";
+echo "Step 1: Checking current migration status...\n";
+runCommand("php artisan migrate:status", "Check migration status");
+
+echo "Step 2: Resetting migrations to fix dependency issues...\n";
 runCommand("php artisan migrate:reset", "Reset all migrations");
 
-echo "Step 2: Running migrations in correct order...\n";
+echo "Step 3: Running migrations in correct order...\n";
 runCommand("php artisan migrate", "Run all migrations");
 
-echo "Step 3: Seeding database with Niger State data...\n";
-runCommand("php artisan db:seed", "Seed database");
+echo "Step 4: Seeding roles and permissions...\n";
+runCommand("php artisan db:seed --class=RolePermissionSeeder", "Seed roles and permissions");
+
+echo "Step 5: Seeding database with Niger State data...\n";
+runCommand("php artisan db:seed --class=LgaSeeder", "Seed LGAs");
+runCommand("php artisan db:seed --class=WardSeeder", "Seed Wards");
+runCommand("php artisan db:seed --class=ProjectSeeder", "Seed Projects");
+runCommand("php artisan db:seed --class=UserSeeder", "Seed Users");
 
 echo "🎉 Database fix completed!\n\n";
 
