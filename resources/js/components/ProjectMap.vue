@@ -245,7 +245,12 @@ const lgaCoordinates = {
   'Shiroro': [9.9667, 6.8333],
   'Suleja': [9.1833, 7.1833],
   'Tafa': [9.3167, 7.3667],
-  'Wushishi': [9.7167, 5.9667]
+  'Wushishi': [9.7167, 5.9667],
+  // Alternative spellings and variations
+  'Agaie LGA': [9.0167, 6.3333],
+  'Bida LGA': [9.0833, 6.0167],
+  'Suleja LGA': [9.1833, 7.1833],
+  'Minna': [9.6167, 6.5500], // Capital city
 };
 
 // Computed properties
@@ -286,6 +291,9 @@ const initMap = () => {
 const updateMarkers = () => {
   if (!map.value) return;
 
+  console.log('Updating markers for', filteredProjects.value.length, 'projects');
+  console.log('Show LGA markers:', props.showLgaMarkers);
+
   // Clear existing markers
   markers.value.forEach(marker => map.value?.removeLayer(marker));
   markers.value = [];
@@ -294,21 +302,25 @@ const updateMarkers = () => {
 
 
   // Add markers for filtered projects with specific coordinates
+  let projectsWithCoords = 0;
   filteredProjects.value.forEach(project => {
     if (project.latitude && project.longitude) {
       const marker = createProjectMarker(project);
       markers.value.push(marker);
       marker.addTo(map.value!);
+      projectsWithCoords++;
     }
   });
 
-  // Add LGA markers for projects without specific coordinates
+  console.log(`Created ${projectsWithCoords} project markers`);
+
+  // Add LGA markers for all projects grouped by LGA
   if (props.showLgaMarkers) {
     const lgaProjectCounts = new Map<string, Project[]>();
 
-    // Group projects by LGA
+    // Group ALL projects by LGA (regardless of having specific coordinates)
     filteredProjects.value.forEach(project => {
-      if (!project.latitude && project.lga_name) {
+      if (project.lga_name) {
         if (!lgaProjectCounts.has(project.lga_name)) {
           lgaProjectCounts.set(project.lga_name, []);
         }
@@ -316,15 +328,23 @@ const updateMarkers = () => {
       }
     });
 
-    // Create LGA markers
+    console.log('LGA Project Counts:', lgaProjectCounts);
+
+    // Create LGA markers for each LGA that has projects
     lgaProjectCounts.forEach((projects, lgaName) => {
       const coordinates = lgaCoordinates[lgaName as keyof typeof lgaCoordinates];
+      console.log(`Creating marker for ${lgaName}:`, coordinates, `${projects.length} projects`);
+
       if (coordinates) {
         const marker = createLgaMarker(lgaName, projects, coordinates);
         lgaMarkers.value.push(marker);
         marker.addTo(map.value!);
+      } else {
+        console.warn(`No coordinates found for LGA: ${lgaName}`);
       }
     });
+
+    console.log(`Created ${lgaMarkers.value.length} LGA markers`);
   }
 
   // Fit map to markers if any exist

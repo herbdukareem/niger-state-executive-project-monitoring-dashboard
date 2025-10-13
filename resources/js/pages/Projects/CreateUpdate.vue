@@ -581,9 +581,17 @@ const createUpdate = async () => {
       // Add files to FormData with proper array syntax
       selectedPhotos.value.forEach((photo, index) => {
         console.log(`Adding file ${index}:`, photo.file.name, photo.file.size, photo.file.type);
-        formData.append('files[]', photo.file, photo.file.name);
-        formData.append(`descriptions[${index}]`, photo.description || '');
+        formData.append('files[]', photo.file);
+        if (photo.description) {
+          formData.append(`descriptions[${index}]`, photo.description);
+        }
       });
+
+      // Log FormData for debugging
+      console.log('FormData entries:');
+      for (let [key, value] of formData.entries()) {
+        console.log(key, value);
+      }
 
       // Add metadata
       formData.append('project_update_id', createdUpdate.id.toString());
@@ -601,7 +609,7 @@ const createUpdate = async () => {
           headers: {
             'Content-Type': 'multipart/form-data',
           },
-          timeout: 30000, // 30 second timeout
+          timeout: 60000, // 60 second timeout for large files
         });
 
         console.log('Photos uploaded successfully:', attachmentResponse.data);
